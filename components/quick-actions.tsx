@@ -185,6 +185,7 @@ export function QuickActions({
                   key={action.id}
                   onClick={action.onClick}
                   disabled={action.disabled}
+                  style={{ opacity: 0, transform: 'translateY(15px) scale(0.9)' }}
                   className={`quick-action-item group flex items-center justify-between gap-4 p-2.5 rounded-xl border transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer active:scale-[0.97] min-w-[200px] ${
                     isPrimary
                       ? "bg-emerald-500/5 border-emerald-500/15 hover:bg-emerald-500/10 hover:border-emerald-500/30"
