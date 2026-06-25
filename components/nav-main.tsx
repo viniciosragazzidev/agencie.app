@@ -28,7 +28,7 @@ export function NavMain({
   return (
     <>
       {sections.map((section) => (
-        <SidebarGroup key={section.label} className="group-data-[collapsible=icon]:hidden pt-6 first:pt-4">
+        <SidebarGroup key={section.label} className="pt-6 first:pt-4">
           <SidebarGroupLabel className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-2 px-4">
             {section.label}
           </SidebarGroupLabel>
@@ -40,6 +40,7 @@ export function NavMain({
                 <SidebarMenuButton 
                   render={<a href={item.url} className="flex items-center w-full" />}
                   isActive={active}
+                  tooltip={item.name}
                   className="w-full group flex items-center justify-between rounded-xl px-3 py-3.5 text-xs font-medium transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted/40 data-[active=true]:bg-muted/80 data-[active=true]:text-foreground text-foreground active:scale-[0.98]"
                 >
                     <div className="flex items-center gap-3">

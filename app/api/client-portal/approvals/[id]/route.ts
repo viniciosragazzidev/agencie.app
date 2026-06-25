@@ -6,15 +6,24 @@ import { eq } from "drizzle-orm"
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const body = await request.json()
-  const { status, clientComment } = body
+  const { status, clientComment, title, description, fileType, fileUrl } = body
 
-  const [updated] = await db.update(approval).set({
-    status,
-    clientComment,
-    approvedAt: status === "approved" ? new Date() : null,
-  }).where(eq(approval.id, id)).returning()
+  const updateData: Record<string, any> = {}
 
-  if (updated) {
+  if (status) {
+    updateData.status = status
+    updateData.clientComment = clientComment
+    if (status === "approved") updateData.approvedAt = new Date()
+  }
+
+  if (title) updateData.title = title
+  if (description !== undefined) updateData.description = description
+  if (fileType) updateData.fileType = fileType
+  if (fileUrl !== undefined) updateData.fileUrl = fileUrl
+
+  const [updated] = await db.update(approval).set(updateData).where(eq(approval.id, id)).returning()
+
+  if (updated && status) {
     await db.insert(clientInteraction).values({
       id: crypto.randomUUID(),
       clientId: updated.clientId,
@@ -26,4 +35,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   return NextResponse.json(updated)
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  await db.delete(approval).where(eq(approval.id, id))
+  return NextResponse.json({ ok: true })
 }

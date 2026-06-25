@@ -1,6 +1,9 @@
 "use client"
 
 import React from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Edit02Icon, Delete02Icon } from "@hugeicons/core-free-icons"
+import { Button } from "@/components/ui/button"
 
 interface ScopeItem {
   id: string
@@ -10,7 +13,11 @@ interface ScopeItem {
   period: string
 }
 
-export function ScopeWall({ scopes }: { scopes: ScopeItem[] }) {
+export function ScopeWall({ scopes, onDelete, onEdit }: {
+  scopes: ScopeItem[]
+  onDelete: (id: string) => void
+  onEdit: (item: ScopeItem) => void
+}) {
   if (scopes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -27,18 +34,38 @@ export function ScopeWall({ scopes }: { scopes: ScopeItem[] }) {
         const isOver = remaining <= 0
 
         return (
-          <div key={scope.id} className="p-3.5 bg-muted/10 border border-border/30 rounded-2xl space-y-2.5">
+          <div key={scope.id} className="p-3.5 bg-muted/10 border border-border/30 rounded-2xl space-y-2.5 group">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-foreground">{scope.label}</p>
-              <span className={`text-[9px] font-bold tracking-widest rounded-full px-2 py-0.5 uppercase ring-1 ${
-                isOver
-                  ? "bg-destructive/10 text-destructive ring-destructive/20"
-                  : percentage > 80
-                  ? "bg-secondary text-secondary-foreground ring-border/50"
-                  : "bg-primary/10 text-primary ring-primary/20"
-              }`}>
-                {remaining} restante{remaining !== 1 ? "s" : ""}
-              </span>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onEdit(scope)}
+                    className="size-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md"
+                  >
+                    <HugeiconsIcon icon={Edit02Icon} strokeWidth={1.5} className="size-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDelete(scope.id)}
+                    className="size-6 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-md"
+                  >
+                    <HugeiconsIcon icon={Delete02Icon} strokeWidth={1.5} className="size-3" />
+                  </Button>
+                </div>
+                <span className={`text-[9px] font-bold tracking-widest rounded-full px-2 py-0.5 uppercase ring-1 ${
+                  isOver
+                    ? "bg-destructive/10 text-destructive ring-destructive/20"
+                    : percentage > 80
+                    ? "bg-secondary text-secondary-foreground ring-border/50"
+                    : "bg-primary/10 text-primary ring-primary/20"
+                }`}>
+                  {remaining} restante{remaining !== 1 ? "s" : ""}
+                </span>
+              </div>
             </div>
             <div className="h-1.5 bg-muted/20 rounded-full overflow-hidden">
               <div

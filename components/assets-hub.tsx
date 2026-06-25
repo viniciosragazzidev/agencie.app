@@ -2,7 +2,8 @@
 
 import React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { FolderOpenIcon, Download01Icon, Link01Icon } from "@hugeicons/core-free-icons"
+import { FolderOpenIcon, Download01Icon, Link01Icon, Edit02Icon, Delete02Icon } from "@hugeicons/core-free-icons"
+import { Button } from "@/components/ui/button"
 
 interface Asset {
   id: string
@@ -22,7 +23,11 @@ const categoryLabels: Record<string, string> = {
   other: "Outros",
 }
 
-export function AssetsHub({ assets }: { assets: Asset[] }) {
+export function AssetsHub({ assets, onDelete, onEdit }: {
+  assets: Asset[]
+  onDelete: (id: string) => void
+  onEdit: (item: Asset) => void
+}) {
   const grouped = assets.reduce((acc, asset) => {
     const cat = asset.category || "other"
     if (!acc[cat]) acc[cat] = []
@@ -57,6 +62,22 @@ export function AssetsHub({ assets }: { assets: Asset[] }) {
                   </div>
                 </div>
                 <div className="flex gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onEdit(asset)}
+                    className="size-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md"
+                  >
+                    <HugeiconsIcon icon={Edit02Icon} strokeWidth={1.5} className="size-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDelete(asset.id)}
+                    className="size-6 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-md"
+                  >
+                    <HugeiconsIcon icon={Delete02Icon} strokeWidth={1.5} className="size-3" />
+                  </Button>
                   {asset.linkUrl && (
                     <a href={asset.linkUrl} target="_blank" rel="noreferrer" className="h-6 px-2 text-[9px] font-bold uppercase tracking-wider rounded-lg border border-border/40 flex items-center gap-1 hover:bg-muted transition-colors">
                       <HugeiconsIcon icon={Link01Icon} strokeWidth={1.5} className="size-3" /> Abrir

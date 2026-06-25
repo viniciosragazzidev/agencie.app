@@ -44,6 +44,7 @@ import { ScopeWall } from "@/components/scope-wall"
 import { AdSpendMeter } from "@/components/ad-spend-meter"
 import { Calendar03Icon, Link01Icon, Shield01Icon, Chart01Icon, HelpCircleIcon } from "@hugeicons/core-free-icons"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
+import { QuickActions } from "@/components/quick-actions"
 
 interface Client {
   id: string
@@ -148,6 +149,13 @@ export default function ClientDashboardPage() {
   const [showAssetModalNew, setShowAssetModalNew] = useState(false)
   const [showAdSpendModalNew, setShowAdSpendModalNew] = useState(false)
   const [showQuicklinkModalNew, setShowQuicklinkModalNew] = useState(false)
+
+  // Quick action modals
+  const [showQuickTaskModal, setShowQuickTaskModal] = useState(false)
+  const [quickTaskTitle, setQuickTaskTitle] = useState("")
+  const [showQuickNoteModal, setShowQuickNoteModal] = useState(false)
+  const [quickNoteContent, setQuickNoteContent] = useState("")
+  const [quickNoteTag, setQuickNoteTag] = useState("context")
 
   // Creation Form States
   const [newApprovalTitle, setNewApprovalTitle] = useState("")
@@ -559,6 +567,29 @@ export default function ClientDashboardPage() {
     }, 1500)
   }
 
+  // Quick Action Handlers
+  const handleQuickCreateTask = async () => {
+    if (!quickTaskTitle.trim()) return
+    const res = await fetch("/api/client-portal/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: id, userId, title: quickTaskTitle, status: "todo" }),
+    })
+    const task = await res.json()
+    setTasks(prev => [...prev, task])
+    setQuickTaskTitle("")
+    setShowQuickTaskModal(false)
+    triggerToast("Tarefa criada!")
+  }
+
+  const handleQuickAddNote = async () => {
+    if (!quickNoteContent.trim()) return
+    await handleAddNote(quickNoteContent, quickNoteTag)
+    setQuickNoteContent("")
+    setQuickNoteTag("context")
+    setShowQuickNoteModal(false)
+  }
+
   const handleStartOutreach = () => {
     if (!client) return
     const defaultApproach = `Olá ${client.contactName || "representante da " + client.name}, somos especialistas no ramo de ${client.industry || "serviços"} e gostaríamos de apresentar nossa proposta para otimizar os seus projetos ativos.`
@@ -616,6 +647,16 @@ export default function ClientDashboardPage() {
           </Button>
         </div>
       </header>
+
+      {/* Quick Actions Bar */}
+      <QuickActions
+        client={client}
+        onGenerateProposal={() => setShowProposalModal(true)}
+        onCreateTask={() => setShowQuickTaskModal(true)}
+        onCreateApproval={() => setShowApprovalModalNew(true)}
+        onAddNote={() => setShowQuickNoteModal(true)}
+        onToast={triggerToast}
+      />
 
       {/* Main Grid View - Fixed viewport height layout */}
       <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 p-6 overflow-hidden min-h-0">
@@ -1901,6 +1942,82 @@ export default function ClientDashboardPage() {
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Task Modal */}
+      {showQuickTaskModal && (
+        <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 relative">
+            <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-6 relative">
+              <button
+                onClick={() => setShowQuickTaskModal(false)}
+                className="absolute right-4 top-4 p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg hover:bg-muted active:scale-[0.98] transition-all duration-300"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+              </button>
+              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">Tarefa Rápida</h3>
+              <p className="text-[10px] text-muted-foreground mb-4">Adicione uma tarefa ao Kanban deste cliente.</p>
+              <Input
+                value={quickTaskTitle}
+                onChange={(e) => setQuickTaskTitle(e.target.value)}
+                placeholder="Ex: Enviar relatório mensal"
+                className="bg-muted/10 border-border/40 text-xs mb-4"
+                onKeyDown={(e) => e.key === "Enter" && handleQuickCreateTask()}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowQuickTaskModal(false)} className="text-xs h-9 rounded-xl">Cancelar</Button>
+                <Button onClick={handleQuickCreateTask} className="text-xs h-9 rounded-xl">Criar Tarefa</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Note Modal */}
+      {showQuickNoteModal && (
+        <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 relative">
+            <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-6 relative">
+              <button
+                onClick={() => setShowQuickNoteModal(false)}
+                className="absolute right-4 top-4 p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg hover:bg-muted active:scale-[0.98] transition-all duration-300"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+              </button>
+              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">Nota Rápida</h3>
+              <p className="text-[10px] text-muted-foreground mb-4">Salve um contexto importante sobre este cliente.</p>
+              <div className="space-y-3 mb-4">
+                <div className="flex gap-1.5">
+                  {["context", "insight", "follow-up", "urgent"].map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => setQuickNoteTag(tag)}
+                      className={`text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg transition-all duration-300 ${
+                        quickNoteTag === tag
+                          ? "bg-primary/10 text-primary ring-1 ring-primary/20"
+                          : "text-muted-foreground hover:bg-muted/50 ring-1 ring-border/30"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+                <Textarea
+                  value={quickNoteContent}
+                  onChange={(e) => setQuickNoteContent(e.target.value)}
+                  placeholder="Ex: Cliente mencionou interesse em Expandir para novo mercado..."
+                  className="bg-muted/10 border-border/40 text-xs min-h-[80px] resize-none"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowQuickNoteModal(false)} className="text-xs h-9 rounded-xl">Cancelar</Button>
+                <Button onClick={handleQuickAddNote} disabled={!quickNoteContent.trim()} className="text-xs h-9 rounded-xl">Salvar Nota</Button>
+              </div>
             </div>
           </div>
         </div>

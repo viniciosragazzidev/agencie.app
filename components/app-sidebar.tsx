@@ -145,7 +145,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   }
 
   return (
-    <Sidebar variant="sidebar" {...props} className="border-r border-border/40 bg-sidebar/50">
+    <Sidebar variant="sidebar" collapsible="icon" {...props} className="border-r border-border/40 bg-sidebar/50">
       <SidebarHeader className="pt-6 pb-2 px-4">
         <SidebarMenu>
           <SidebarMenuItem>

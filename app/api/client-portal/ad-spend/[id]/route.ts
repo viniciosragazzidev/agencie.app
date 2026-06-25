@@ -9,3 +9,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const [updated] = await db.update(adSpendTracker).set(body).where(eq(adSpendTracker.id, id)).returning()
   return NextResponse.json(updated)
 }
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  await db.delete(adSpendTracker).where(eq(adSpendTracker.id, id))
+  return NextResponse.json({ ok: true })
+}

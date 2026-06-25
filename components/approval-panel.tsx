@@ -2,7 +2,7 @@
 
 import React from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { CheckmarkCircle02Icon, Edit02Icon } from "@hugeicons/core-free-icons"
+import { CheckmarkCircle02Icon, Edit02Icon, Delete02Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
 
 interface ApprovalItem {
@@ -27,10 +27,12 @@ const statusLabels = {
   revision: "Revisão",
 }
 
-export function ApprovalPanel({ items, onApprove, onRevision }: {
+export function ApprovalPanel({ items, onApprove, onRevision, onDelete, onEdit }: {
   items: ApprovalItem[]
   onApprove: (id: string) => void
   onRevision: (id: string, comment: string) => void
+  onDelete: (id: string) => void
+  onEdit: (item: ApprovalItem) => void
 }) {
   return (
     <div className="space-y-3">
@@ -38,15 +40,35 @@ export function ApprovalPanel({ items, onApprove, onRevision }: {
         const cls = statusClasses[item.status] || statusClasses.pending
         const label = statusLabels[item.status] || statusLabels.pending
         return (
-          <div key={item.id} className="p-4 bg-muted/5 border border-border/30 rounded-2xl space-y-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)]">
+          <div key={item.id} className="p-4 bg-muted/5 border border-border/30 rounded-2xl space-y-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)] group">
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-foreground">{item.title}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">{item.fileType.toUpperCase()}</p>
               </div>
-              <span className={`text-[9px] font-bold tracking-widest ${cls} ring-1 rounded-full px-2 py-0.5 uppercase`}>
-                {label}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onEdit(item)}
+                    className="size-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md"
+                  >
+                    <HugeiconsIcon icon={Edit02Icon} strokeWidth={1.5} className="size-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDelete(item.id)}
+                    className="size-6 text-destructive/60 hover:text-destructive hover:bg-destructive/10 rounded-md"
+                  >
+                    <HugeiconsIcon icon={Delete02Icon} strokeWidth={1.5} className="size-3" />
+                  </Button>
+                </div>
+                <span className={`text-[9px] font-bold tracking-widest ${cls} ring-1 rounded-full px-2 py-0.5 uppercase`}>
+                  {label}
+                </span>
+              </div>
             </div>
             {item.description && <p className="text-[10px] text-muted-foreground leading-relaxed">{item.description}</p>}
             {item.status === "pending" && (

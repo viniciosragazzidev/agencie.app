@@ -501,100 +501,54 @@ function InboxContent() {
   }
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-background">
-      <main className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 max-w-[1400px] w-full mx-auto overflow-hidden">
-
-        {/* Header */}
-        <section className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bento-item">
-          <div>
-            <div className="flex items-center gap-2">
+    <div ref={containerRef} className="flex-1 flex w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-background">
+      
+      {/* Painel esquerdo — lista de conversas */}
+      <div className="w-full lg:w-[320px] xl:w-[380px] shrink-0 border-r border-border/40 bg-sidebar/30 flex flex-col h-full bento-item">
+        
+        {/* Header Inbox */}
+        <div className="p-4 border-b border-border/40 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
               <div className="size-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <HugeiconsIcon icon={Message01Icon} className="size-5 text-primary" />
+                <HugeiconsIcon icon={Message01Icon} className="size-4 text-primary" />
               </div>
-              <h1 className="text-2xl font-display font-semibold tracking-tight">Inbox Omnichannel</h1>
+              <div>
+                <h1 className="text-sm font-display font-semibold tracking-tight leading-none">Inbox Omnichannel</h1>
+                <p className="text-[10px] text-muted-foreground mt-1">Gestão centralizada</p>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1.5 font-medium">
-              Centralize seus canais de atendimento em uma interface única e rápida.
-            </p>
-          </div>
-
-          {/* Status das integrações */}
-          <div className="flex items-center gap-3">
-            {wppIntegration ? (
-              <>
-                <div className="bg-card border border-border/40 px-3 py-2 rounded-xl flex items-center gap-2">
-                  <div className={`size-1.5 rounded-full ${wppIntegration.status === "active" ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-muted-foreground"}`} />
-                  <div className="text-left">
-                    <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider leading-none">WhatsApp</p>
-                    <p className="text-xs font-semibold mt-0.5 leading-none">
-                      {wppIntegration.status === "active" ? "Online" : wppIntegration.status === "qr_pending" ? "Aguardando" : "Offline"}
-                    </p>
-                  </div>
-                </div>
-                {wppIntegration.status === "active" && (
-                  <button
-                    onClick={handleTestWpp}
-                    disabled={testingWpp}
-                    className="bg-card border border-green-500/30 px-3 py-2 rounded-xl flex items-center gap-2 hover:bg-green-500/5 transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <div className={`size-1.5 rounded-full bg-green-500 ${testingWpp ? "animate-pulse" : ""}`} />
-                    <span className="text-[10px] font-bold text-green-600 dark:text-green-400">
-                      {testingWpp ? "Enviando..." : "Testar Conexão"}
-                    </span>
-                  </button>
-                )}
-              </>
-            ) : (
-              <Link href="/settings/integrations">
-                <div className="bg-card border border-border/40 px-3 py-2 rounded-xl flex items-center gap-2 hover:border-primary/30 transition-colors cursor-pointer">
-                  <HugeiconsIcon icon={WifiOff01Icon} className="size-3.5 text-muted-foreground" strokeWidth={1.5} />
-                  <span className="text-[10px] font-bold text-muted-foreground">Configurar canais</span>
-                </div>
-              </Link>
-            )}
-            <div className="bg-card border border-border/40 px-3 py-2 rounded-xl flex items-center gap-2">
+            
+            {/* Indicador Autopiloto */}
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 border border-border/40">
               <div className="size-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
-              <div className="text-left">
-                <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-wider leading-none">Autopiloto</p>
-                <p className="text-xs font-semibold mt-0.5 leading-none">
-                  {Object.values(autopilotMap).filter(Boolean).length} / {conversations.length} Ativos
-                </p>
-              </div>
+              <span className="text-[9px] font-bold text-muted-foreground uppercase">{Object.values(autopilotMap).filter(Boolean).length} IA</span>
             </div>
           </div>
-        </section>
 
-        {/* Layout principal */}
-        <section className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0 max-h-[600px]">
+          <div className="relative">
+            <HugeiconsIcon icon={Search01Icon} className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar conversas..."
+              className="pl-9 h-9 bg-background border-border/40 rounded-xl text-xs focus-visible:ring-1"
+            />
+          </div>
+          
+          <div className="flex gap-1 overflow-x-auto no-scrollbar">
+            {[{ id: "ALL", name: "Todos" }, { id: "whatsapp", name: "WhatsApp" }, { id: "instagram", name: "Instagram" }, { id: "facebook", name: "Facebook" }].map((tab) => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+                className={`px-3 py-1 text-[10px] font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === tab.id ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted/30 text-muted-foreground hover:text-foreground border border-border/30"}`}>
+                {tab.name}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          {/* Painel esquerdo — lista de conversas */}
-          <div className="lg:col-span-4 double-bezel-card bento-item bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] flex flex-col h-full min-h-[300px]">
-            <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] flex-1 flex flex-col overflow-hidden">
-
-              {/* Busca e filtros */}
-              <div className="p-4 border-b border-border/40 space-y-3">
-                <div className="relative">
-                  <HugeiconsIcon icon={Search01Icon} className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar conversas..."
-                    className="pl-9 h-10 bg-muted/30 border-border/40 rounded-xl text-xs"
-                  />
-                </div>
-                <div className="flex gap-1 overflow-x-auto no-scrollbar pt-1">
-                  {[{ id: "ALL", name: "Todos" }, { id: "whatsapp", name: "WhatsApp" }, { id: "instagram", name: "Instagram" }, { id: "facebook", name: "Facebook" }].map((tab) => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-                      className={`px-3 py-1.5 text-[10px] font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === tab.id ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted/30 text-muted-foreground hover:text-foreground border border-border/30"}`}>
-                      {tab.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Lista de conversas */}
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="divide-y divide-border/20">
+        {/* Lista de conversas */}
+        <ScrollArea className="flex-1 min-h-0 bg-sidebar/10">
+          <div className="divide-y divide-border/10">
                 {!hasActiveIntegrations && !loadingConvs ? (
                   <div className="p-8 text-center space-y-3">
                     <HugeiconsIcon icon={WifiOff01Icon} className="size-8 mx-auto text-muted-foreground/40" strokeWidth={1} />
@@ -649,13 +603,12 @@ function InboxContent() {
                   ))
                 )}
                 </div>
-              </ScrollArea>
-            </div>
           </div>
+        </ScrollArea>
+      </div>
 
-          {/* Painel direito — chat ativo */}
-          <div className="lg:col-span-8 double-bezel-card bento-item bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] flex flex-col h-full min-h-[300px]">
-            <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] flex-1 flex flex-col overflow-hidden">
+      {/* Painel direito — chat ativo */}
+      <div className="hidden lg:flex flex-1 flex-col min-w-0 bg-background h-full bento-item relative">
 
               {!activeConvId ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
@@ -868,12 +821,8 @@ function InboxContent() {
                   </div>
                 </>
               )}
-            </div>
-          </div>
-
-        </section>
-      </main>
-
+      </div>
+      
       <ConfirmDialog
         open={!!ignoringConvId}
         onOpenChange={(open) => !open && setIgnoringConvId(null)}
