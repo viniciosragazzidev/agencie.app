@@ -136,22 +136,21 @@ export default function DashboardPage() {
       ease: "power2.out",
     })
 
-    gsap.from(".hero-text", {
-      opacity: 0,
-      y: -12,
+    gsap.to(".hero-text", {
+      opacity: 1,
+      y: 0,
       duration: 1.0,
       ease: "cubic-bezier(0.32,0.72,0,1)",
       stagger: 0.08,
       delay: 0.1,
     })
-    gsap.from(".double-bezel-card", {
-      y: 20,
-      scale: 0.98,
-      opacity: 0,
+    gsap.to(".double-bezel-card", {
+      y: 0,
+      scale: 1,
+      opacity: 1,
       duration: 1.1,
       stagger: 0.06,
       ease: "cubic-bezier(0.32,0.72,0,1)",
-      clearProps: "all",
       delay: 0.15,
     })
   }, { scope: containerRef, dependencies: [loading, dashboardData] })
