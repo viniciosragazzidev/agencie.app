@@ -6,7 +6,7 @@ import gsap from "gsap"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Search01Icon, UserIcon, ArrowRight01Icon, SparklesIcon,
-  Message01Icon, Settings01Icon, WifiOff01Icon,
+  Message01Icon, Settings01Icon, WifiOff01Icon, BlocksIcon,
 } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,7 @@ import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { MagneticTabs } from "@/components/ui/magnetic-tabs"
+import { QuickChatActions } from "@/components/inbox/quick-chat-actions"
 
 interface Message {
   id: string
@@ -39,6 +40,7 @@ interface Conversation {
   lastMessageAt?: string | null
   unreadCount?: string
   integrationId: string
+  isClient?: boolean
 }
 
 interface Integration {
@@ -80,6 +82,7 @@ function InboxContent() {
   const [testingWpp, setTestingWpp] = useState(false)
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null)
   const [ignoringConvId, setIgnoringConvId] = useState<string | null>(null)
+  const [deletingConvId, setDeletingConvId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const searchParams = useSearchParams()
   const autoContactName = searchParams.get("contactName")
@@ -125,7 +128,7 @@ function InboxContent() {
     const syncMessages = async () => {
       try {
         await fetch("/api/integrations/whatsapp/sync", { method: "POST" })
-      } catch {}
+      } catch { }
     }
 
     // Sync imediato
@@ -161,7 +164,7 @@ function InboxContent() {
       setConversations((prev) =>
         prev.map((c) => c.id === found.id ? { ...c, unreadCount: "0" } : c)
       )
-      fetch(`/api/conversations/${found.id}/messages`, { method: "PATCH" }).catch(() => {})
+      fetch(`/api/conversations/${found.id}/messages`, { method: "PATCH" }).catch(() => { })
       if (autoApproach) {
         setMessageText(autoApproach)
       }
@@ -216,7 +219,7 @@ function InboxContent() {
       const res = await fetch("/api/integrations")
       const data = await res.json()
       setIntegrations(data.integrations || [])
-    } catch {}
+    } catch { }
   }
 
   // SSE global para tempo real
@@ -341,7 +344,7 @@ function InboxContent() {
       prev.map((c) => c.id === convId ? { ...c, unreadCount: "0" } : c)
     )
     // Resetar unread no servidor (sem await — fire and forget)
-    fetch(`/api/conversations/${convId}/messages`, { method: "PATCH" }).catch(() => {})
+    fetch(`/api/conversations/${convId}/messages`, { method: "PATCH" }).catch(() => { })
   }
 
   const handleToggleIgnore = (convId: string | null) => {
@@ -367,6 +370,28 @@ function InboxContent() {
       }
     } catch {
       toast.error("Erro ao ignorar contato")
+    }
+  }
+
+  const handleDeleteConv = (convId: string | null) => {
+    if (!convId) return
+    setDeletingConvId(convId)
+  }
+
+  const executeDeleteConv = async () => {
+    if (!deletingConvId) return
+    const convId = deletingConvId
+    try {
+      const res = await fetch(`/api/conversations/${convId}`, { method: "DELETE" })
+      if (res.ok) {
+        toast.success("Conversa removida")
+        setConversations((prev) => prev.filter((c) => c.id !== convId))
+        if (activeConvId === convId) setActiveConvId(null)
+      } else {
+        toast.error("Erro ao remover conversa")
+      }
+    } catch {
+      toast.error("Erro ao remover conversa")
     }
   }
 
@@ -520,10 +545,10 @@ function InboxContent() {
 
   return (
     <div ref={containerRef} className="flex-1 flex w-full h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)] overflow-hidden bg-background">
-      
+
       {/* Painel esquerdo — lista de conversas */}
       <div className="w-full lg:w-[320px] xl:w-[380px] shrink-0 border-r border-border/40 bg-sidebar/30 flex flex-col h-full min-h-0 bento-item">
-        
+
         {/* Header Inbox */}
         <div className="p-4 border-b border-border/40 space-y-4">
           <div className="flex items-center justify-between">
@@ -536,7 +561,7 @@ function InboxContent() {
                 <p className="text-[10px] text-muted-foreground mt-1">Gestão centralizada</p>
               </div>
             </div>
-            
+
             {/* Indicador Autopiloto */}
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 border border-border/40">
               <div className="size-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
@@ -553,7 +578,7 @@ function InboxContent() {
               className="pl-9 h-9 bg-background border-border/40 rounded-xl text-xs focus-visible:ring-1"
             />
           </div>
-          
+
           <MagneticTabs
             options={[
               { id: "ALL", name: "Todos" },
@@ -570,60 +595,60 @@ function InboxContent() {
         {/* Lista de conversas */}
         <ScrollArea className="flex-1 min-h-0 bg-sidebar/10">
           <div className="divide-y divide-border/10">
-                {!hasActiveIntegrations && !loadingConvs ? (
-                  <div className="p-8 text-center space-y-3">
-                    <HugeiconsIcon icon={WifiOff01Icon} className="size-8 mx-auto text-muted-foreground/40" strokeWidth={1} />
-                    <p className="text-xs text-muted-foreground font-medium">Nenhum canal conectado</p>
-                    <Link href="/settings/integrations">
-                      <Button size="sm" className="h-8 text-[10px] rounded-full mt-1">
-                        <HugeiconsIcon icon={Settings01Icon} className="size-3 mr-1.5" />
-                        Configurar Integrações
-                      </Button>
-                    </Link>
+            {!hasActiveIntegrations && !loadingConvs ? (
+              <div className="p-8 text-center space-y-3">
+                <HugeiconsIcon icon={WifiOff01Icon} className="size-8 mx-auto text-muted-foreground/40" strokeWidth={1} />
+                <p className="text-xs text-muted-foreground font-medium">Nenhum canal conectado</p>
+                <Link href="/settings/integrations">
+                  <Button size="sm" className="h-8 text-[10px] rounded-full mt-1">
+                    <HugeiconsIcon icon={Settings01Icon} className="size-3 mr-1.5" />
+                    Configurar Integrações
+                  </Button>
+                </Link>
+              </div>
+            ) : loadingConvs ? (
+              <div className="p-8 text-center">
+                <p className="text-xs text-muted-foreground">Carregando conversas...</p>
+              </div>
+            ) : filteredConvs.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-xs text-muted-foreground">Nenhuma conversa encontrada</p>
+              </div>
+            ) : (
+              filteredConvs.map((conv) => (
+                <div key={conv.id} onClick={() => handleSelectConversation(conv.id)}
+                  style={{ opacity: 0, transform: 'translateY(15px)' }}
+                  className={`conv-item p-4 hover:bg-muted/10 cursor-pointer transition-all duration-300 flex gap-3 relative ${activeConvId === conv.id ? "bg-muted/10" : ""}`}>
+                  {activeConvId === conv.id && (
+                    <div className="absolute left-0 top-[20%] w-[3px] h-[60%] bg-primary rounded-r-full" />
+                  )}
+                  <div className="flex aspect-square size-10 items-center justify-center rounded-full bg-muted border border-border/50 shrink-0 relative">
+                    {conv.contactAvatar ? (
+                      <img src={conv.contactAvatar} alt="" className="size-full rounded-full object-cover" />
+                    ) : (
+                      <HugeiconsIcon icon={UserIcon} className="size-5 text-muted-foreground" />
+                    )}
+                    <span className={`absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border border-card flex items-center justify-center text-[7px] text-white font-bold font-sans ${CHANNEL_COLOR[conv.channel]?.includes("green") ? "bg-green-500" : CHANNEL_COLOR[conv.channel]?.includes("pink") ? "bg-pink-500" : "bg-blue-500"}`}>
+                      {CHANNEL_LETTER[conv.channel]}
+                    </span>
                   </div>
-                ) : loadingConvs ? (
-                  <div className="p-8 text-center">
-                    <p className="text-xs text-muted-foreground">Carregando conversas...</p>
-                  </div>
-                ) : filteredConvs.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <p className="text-xs text-muted-foreground">Nenhuma conversa encontrada</p>
-                  </div>
-                ) : (
-                  filteredConvs.map((conv) => (
-                    <div key={conv.id} onClick={() => handleSelectConversation(conv.id)}
-                      style={{ opacity: 0, transform: 'translateY(15px)' }}
-                      className={`conv-item p-4 hover:bg-muted/10 cursor-pointer transition-all duration-300 flex gap-3 relative ${activeConvId === conv.id ? "bg-muted/10" : ""}`}>
-                      {activeConvId === conv.id && (
-                        <div className="absolute left-0 top-[20%] w-[3px] h-[60%] bg-primary rounded-r-full" />
-                      )}
-                      <div className="flex aspect-square size-10 items-center justify-center rounded-full bg-muted border border-border/50 shrink-0 relative">
-                        {conv.contactAvatar ? (
-                          <img src={conv.contactAvatar} alt="" className="size-full rounded-full object-cover" />
-                        ) : (
-                          <HugeiconsIcon icon={UserIcon} className="size-5 text-muted-foreground" />
-                        )}
-                        <span className={`absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border border-card flex items-center justify-center text-[7px] text-white font-bold font-sans ${CHANNEL_COLOR[conv.channel]?.includes("green") ? "bg-green-500" : CHANNEL_COLOR[conv.channel]?.includes("pink") ? "bg-pink-500" : "bg-blue-500"}`}>
-                          {CHANNEL_LETTER[conv.channel]}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-xs font-semibold text-foreground truncate">{conv.contactName || conv.contactIdentifier || "Contato"}</h4>
-                          <p className="text-xs text-muted-foreground truncate mt-1">{conv.lastMessagePreview || "Sem mensagens"}</p>
-                        </div>
-                        <div className="flex flex-col items-end justify-between shrink-0 h-9">
-                          <span className="text-[9px] font-medium text-muted-foreground leading-none">{formatTime(conv.lastMessageAt)}</span>
-                          {conv.unreadCount && parseInt(conv.unreadCount) > 0 ? (
-                            <div className="size-4 rounded-full bg-primary flex items-center justify-center text-[8px] font-bold text-primary-foreground shadow-[0_0_6px_rgba(var(--primary),0.4)] mt-1">
-                              {conv.unreadCount}
-                            </div>
-                          ) : <div className="size-4" />}
-                        </div>
-                      </div>
+                  <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-semibold text-foreground truncate">{conv.contactName || conv.contactIdentifier || "Contato"}</h4>
+                      <p className="text-xs text-muted-foreground truncate mt-1">{conv.lastMessagePreview || "Sem mensagens"}</p>
                     </div>
-                  ))
-                )}
+                    <div className="flex flex-col items-end justify-between shrink-0 h-9">
+                      <span className="text-[9px] font-medium text-muted-foreground leading-none">{formatTime(conv.lastMessageAt)}</span>
+                      {conv.unreadCount && parseInt(conv.unreadCount) > 0 ? (
+                        <div className="size-4 rounded-full bg-primary flex items-center justify-center text-[8px] font-bold text-primary-foreground shadow-[0_0_6px_rgba(var(--primary),0.4)] mt-1">
+                          {conv.unreadCount}
+                        </div>
+                      ) : <div className="size-4" />}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </ScrollArea>
       </div>
@@ -631,219 +656,236 @@ function InboxContent() {
       {/* Painel direito — chat ativo */}
       <div className="hidden lg:flex flex-1 flex-col min-w-0 min-h-0 bg-background h-full bento-item relative">
 
-              {!activeConvId ? (
-                <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
-                  <HugeiconsIcon icon={Message01Icon} className="size-12 text-muted-foreground/20" strokeWidth={1} />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Selecione uma conversa</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">Ou aguarde uma nova mensagem chegar em tempo real</p>
-                  </div>
+        {!activeConvId ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+            <HugeiconsIcon icon={Message01Icon} className="size-12 text-muted-foreground/20" strokeWidth={1} />
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Selecione uma conversa</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Ou aguarde uma nova mensagem chegar em tempo real</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Header do chat */}
+            <div className="p-4 px-6 border-b border-border/40 flex items-center justify-between bg-muted/10">
+              <div className="flex items-center gap-3">
+                <div className="flex aspect-square size-10 items-center justify-center rounded-full bg-muted border border-border/50 relative">
+                  {activeConv?.contactAvatar ? (
+                    <img src={activeConv.contactAvatar} alt="" className="size-full rounded-full object-cover" />
+                  ) : (
+                    <HugeiconsIcon icon={UserIcon} className="size-5 text-muted-foreground" />
+                  )}
                 </div>
-              ) : (
-                <>
-                  {/* Header do chat */}
-                  <div className="p-4 px-6 border-b border-border/40 flex items-center justify-between bg-muted/10">
-                    <div className="flex items-center gap-3">
-                      <div className="flex aspect-square size-10 items-center justify-center rounded-full bg-muted border border-border/50 relative">
-                        {activeConv?.contactAvatar ? (
-                          <img src={activeConv.contactAvatar} alt="" className="size-full rounded-full object-cover" />
-                        ) : (
-                          <HugeiconsIcon icon={UserIcon} className="size-5 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-xs text-foreground">
-                            {activeConv?.contactName || activeConv?.contactIdentifier || "Contato"}
-                          </h3>
-                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ring-1 uppercase tracking-wider ${CHANNEL_COLOR[activeConv?.channel || "whatsapp"]}`}>
-                            {activeConv?.channel === "whatsapp" ? "WPP" : activeConv?.channel?.toUpperCase()}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-primary font-medium tracking-wide uppercase mt-0.5">
-                          {activeIntegration?.accountName || activeConv?.channel}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggleIgnore(activeConvId)}
-                        className="h-8 rounded-xl text-[10px] font-bold uppercase tracking-wider gap-1 px-3 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors"
-                        title="Marcar como número sem valor / ignorar"
-                      >
-                        🚫 Ignorar
-                      </Button>
-
-                      <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 rounded-xl border border-border/40">
-                        <Switch
-                          id="ai-auto"
-                          checked={autopilotMap[activeConvId] || false}
-                          onCheckedChange={(v) => setAutopilotMap((prev) => ({ ...prev, [activeConvId]: v }))}
-                        />
-                        <Label htmlFor="ai-auto" className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest cursor-pointer leading-none">
-                          Autopiloto IA
-                        </Label>
-                      </div>
-                    </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-xs text-foreground">
+                      {activeConv?.contactName || activeConv?.contactIdentifier || "Contato"}
+                    </h3>
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ring-1 uppercase tracking-wider ${CHANNEL_COLOR[activeConv?.channel || "whatsapp"]}`}>
+                      {activeConv?.channel === "whatsapp" ? "WPP" : activeConv?.channel?.toUpperCase()}
+                    </span>
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ring-1 uppercase tracking-wider ml-1 ${activeConv?.isClient || activeConv?.contactName ? "bg-green-500/10 text-green-500 ring-green-500/20" : "bg-blue-500/10 text-blue-500 ring-blue-500/20"}`}>
+                      {activeConv?.isClient || activeConv?.contactName ? "CLIENTE" : "LEAD"}
+                    </span>
                   </div>
+                  <p className="text-[10px] text-primary font-medium tracking-wide uppercase mt-0.5">
+                    {activeIntegration?.accountName || activeConv?.channel}
+                  </p>
+                </div>
+              </div>
 
-                  {/* Mensagens */}
-                  <ScrollArea className="flex-1 min-h-0 bg-muted/5">
-                    <div className="p-6 space-y-4">
-                    {loadingMsgs ? (
-                      <div className="text-center py-8">
-                        <p className="text-xs text-muted-foreground">Carregando mensagens...</p>
-                      </div>
-                    ) : (() => {
-                      // Renderizar com separadores de data
-                      let lastDate = ""
-                      return messages.map((msg, index) => {
-                        const isOut = msg.direction === "outbound"
-                        const msgDate = new Date(msg.sentAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
-                        const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
-                        const showDate = msgDate !== lastDate
-                        lastDate = msgDate
+              <div className="flex items-center gap-2.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDeleteConv(activeConvId)}
+                  className="h-8 rounded-xl text-[10px] font-bold uppercase tracking-wider gap-1 px-3 text-amber-500 border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-colors"
+                  title="Remover conversa da lista"
+                >
+                  🗑 Remover
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleToggleIgnore(activeConvId)}
+                  className="h-8 rounded-xl text-[10px] font-bold uppercase tracking-wider gap-1 px-3 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors"
+                  title="Marcar como número sem valor / ignorar"
+                >
+                  <HugeiconsIcon icon={BlocksIcon} /> Ignorar
+                </Button>
 
-                        // Status indicator para mensagens outbound
-                        let statusIcon = ""
-                        let statusColor = "opacity-60"
-                        if (isOut) {
-                          if (msg.status === "sending") {
-                            statusIcon = "⏳"
-                          } else if (msg.status === "sent") {
-                            statusIcon = "✓"
-                          } else if (msg.status === "delivered") {
-                            statusIcon = "✓✓"
-                          } else if (msg.status === "read") {
-                            statusIcon = "✓✓"
-                            statusColor = "text-blue-400 opacity-100"
-                          } else {
-                            statusIcon = "✓"
-                          }
-                        }
+                <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 rounded-xl border border-border/40">
+                  <Switch
+                    id="ai-auto"
+                    checked={autopilotMap[activeConvId] || false}
+                    onCheckedChange={(v) => setAutopilotMap((prev) => ({ ...prev, [activeConvId]: v }))}
+                  />
+                  <Label htmlFor="ai-auto" className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest cursor-pointer leading-none">
+                    Autopiloto IA
+                  </Label>
+                </div>
+              </div>
+            </div>
 
-                        return (
-                          <React.Fragment key={msg.id}>
-                            {showDate && (
-                              <div className="flex items-center justify-center py-2">
-                                <span className="text-[10px] font-medium text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
-                                  {msgDate === today ? "Hoje" : msgDate}
-                                </span>
+            {/* Mensagens */}
+            <ScrollArea className="flex-1 min-h-0 bg-muted/5">
+              <div className="p-6 space-y-4">
+                {loadingMsgs ? (
+                  <div className="text-center py-8">
+                    <p className="text-xs text-muted-foreground">Carregando mensagens...</p>
+                  </div>
+                ) : (() => {
+                  // Renderizar com separadores de data
+                  let lastDate = ""
+                  return messages.map((msg, index) => {
+                    const isOut = msg.direction === "outbound"
+                    const msgDate = new Date(msg.sentAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+                    const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+                    const showDate = msgDate !== lastDate
+                    lastDate = msgDate
+
+                    // Status indicator para mensagens outbound
+                    let statusIcon = ""
+                    let statusColor = "opacity-60"
+                    if (isOut) {
+                      if (msg.status === "sending") {
+                        statusIcon = "⏳"
+                      } else if (msg.status === "sent") {
+                        statusIcon = "✓"
+                      } else if (msg.status === "delivered") {
+                        statusIcon = "✓✓"
+                      } else if (msg.status === "read") {
+                        statusIcon = "✓✓"
+                        statusColor = "text-blue-400 opacity-100"
+                      } else {
+                        statusIcon = "✓"
+                      }
+                    }
+
+                    return (
+                      <React.Fragment key={msg.id}>
+                        {showDate && (
+                          <div className="flex items-center justify-center py-2">
+                            <span className="text-[10px] font-medium text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
+                              {msgDate === today ? "Hoje" : msgDate}
+                            </span>
+                          </div>
+                        )}
+                        <div className={`flex ${isOut ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                          <div className={`rounded-2xl px-4 py-2.5 max-w-[75%] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] border ${isOut ? "bg-primary text-primary-foreground border-primary/20 rounded-tr-sm" : "bg-card text-foreground border-border/50 rounded-tl-sm"}`}>
+                            {msg.mediaUrl && (
+                              <div className="mb-2 max-w-full overflow-hidden rounded-xl">
+                                {msg.mediaType === "image" ? (
+                                  <img src={msg.mediaUrl} alt="Anexo" className="max-h-64 w-full object-cover rounded-xl border border-white/10" />
+                                ) : msg.mediaType === "audio" || msg.mediaType === "voice" || msg.mediaType === "ptt" ? (
+                                  <audio src={msg.mediaUrl} controls className="w-full max-w-[240px] my-1" />
+                                ) : msg.mediaType === "video" ? (
+                                  <video src={msg.mediaUrl} controls className="max-h-64 w-full rounded-xl" />
+                                ) : (
+                                  <a href={msg.mediaUrl} download className="flex items-center gap-2 p-2.5 bg-black/20 rounded-xl text-xs underline">
+                                    📎 Baixar Anexo / Documento
+                                  </a>
+                                )}
                               </div>
                             )}
-                            <div className={`flex ${isOut ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                              <div className={`rounded-2xl px-4 py-2.5 max-w-[75%] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] border ${isOut ? "bg-primary text-primary-foreground border-primary/20 rounded-tr-sm" : "bg-card text-foreground border-border/50 rounded-tl-sm"}`}>
-                                {msg.mediaUrl && (
-                                  <div className="mb-2 max-w-full overflow-hidden rounded-xl">
-                                    {msg.mediaType === "image" ? (
-                                      <img src={msg.mediaUrl} alt="Anexo" className="max-h-64 w-full object-cover rounded-xl border border-white/10" />
-                                    ) : msg.mediaType === "audio" || msg.mediaType === "voice" || msg.mediaType === "ptt" ? (
-                                      <audio src={msg.mediaUrl} controls className="w-full max-w-[240px] my-1" />
-                                    ) : msg.mediaType === "video" ? (
-                                      <video src={msg.mediaUrl} controls className="max-h-64 w-full rounded-xl" />
-                                    ) : (
-                                      <a href={msg.mediaUrl} download className="flex items-center gap-2 p-2.5 bg-black/20 rounded-xl text-xs underline">
-                                        📎 Baixar Anexo / Documento
-                                      </a>
-                                    )}
-                                  </div>
-                                )}
-                                {msg.content && !(msg.mediaUrl && ["📷 Imagem", "🎤 Áudio", "🎥 Vídeo", "📄 Documento"].includes(msg.content)) && (
-                                  <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                                )}
-                                <span className={`text-[9px] mt-1 block text-right font-medium flex items-center justify-end gap-1 ${isOut ? statusColor : "opacity-60"}`}>
-                                  {new Date(msg.sentAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                                  {isOut && statusIcon && (
-                                    <span className={`text-[10px] leading-none ${msg.status === "read" ? "text-blue-400" : ""}`}>{statusIcon}</span>
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-                          </React.Fragment>
-                        )
-                      })
-                    })()}
-                    {aiThinking && (
-                      <div className="flex justify-end animate-pulse">
-                        <div className="bg-secondary text-secondary-foreground border border-secondary-foreground/10 rounded-2xl rounded-tr-sm px-4 py-3 max-w-[75%] flex items-center gap-2">
-                          <svg className="animate-spin size-3.5 text-current" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          <span className="text-xs font-medium">IA pensando na resposta...</span>
+                            {msg.content && !(msg.mediaUrl && ["📷 Imagem", "🎤 Áudio", "🎥 Vídeo", "📄 Documento"].includes(msg.content)) && (
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                            )}
+                            <span className={`text-[9px] mt-1 block text-right font-medium flex items-center justify-end gap-1 ${isOut ? statusColor : "opacity-60"}`}>
+                              {new Date(msg.sentAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                              {isOut && statusIcon && (
+                                <span className={`text-[10px] leading-none ${msg.status === "read" ? "text-blue-400" : ""}`}>{statusIcon}</span>
+                              )}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    <div ref={messagesEndRef} />
-                    </div>
-                  </ScrollArea>
-
-                  {/* Input */}
-                  <div className="p-4 border-t border-border/40 bg-background/50 flex flex-col gap-2">
-                    {attachmentFile && (
-                      <div className="flex items-center justify-between px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-xl text-xs text-primary animate-in fade-in">
-                        <span className="truncate max-w-[300px] font-medium flex items-center gap-1.5">
-                          📎 Anexo pronto: <span className="underline">{attachmentFile.name}</span>
-                        </span>
-                        <button onClick={() => setAttachmentFile(null)} className="font-bold p-1 hover:text-destructive">✕</button>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <Button variant="outline" size="sm" onClick={handleSuggestAi} disabled={aiThinking}
-                        className="h-8 rounded-full text-[10px] font-bold uppercase tracking-wider gap-1.5 text-primary border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors">
-                        <HugeiconsIcon icon={SparklesIcon} className="size-3" />
-                        Sugerir Resposta via IA
-                      </Button>
-                      {autopilotMap[activeConvId] && (
-                        <span className="text-[9px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1.5">
-                          <span className="size-1.5 rounded-full bg-green-500 animate-ping" />
-                          Autopiloto assumirá resposta
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            setAttachmentFile(e.target.files[0])
-                          }
-                        }}
-                        className="hidden"
-                      />
-                      <Button
-                        variant="outline"
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={sending}
-                        className="h-10 w-10 shrink-0 rounded-xl border-border/40 hover:bg-muted/30 p-0 text-muted-foreground flex items-center justify-center text-base"
-                        title="Anexar arquivo / imagem / áudio"
-                      >
-                        📎
-                      </Button>
-                      <input
-                        type="text"
-                        value={messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                        placeholder="Digite sua mensagem ou legenda..."
-                        className="flex-1 h-10 px-3.5 bg-muted/30 border border-border/40 rounded-xl text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all duration-300"
-                        disabled={sending}
-                      />
-                      <Button onClick={handleSendMessage} disabled={sending || (!messageText.trim() && !attachmentFile)}
-                        className="h-10 w-10 shrink-0 rounded-xl active:scale-[0.96] transition-transform flex items-center justify-center">
-                        <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
-                      </Button>
+                      </React.Fragment>
+                    )
+                  })
+                })()}
+                {aiThinking && (
+                  <div className="flex justify-end animate-pulse">
+                    <div className="bg-secondary text-secondary-foreground border border-secondary-foreground/10 rounded-2xl rounded-tr-sm px-4 py-3 max-w-[75%] flex items-center gap-2">
+                      <svg className="animate-spin size-3.5 text-current" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span className="text-xs font-medium">IA pensando na resposta...</span>
                     </div>
                   </div>
-                </>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
+
+            {/* Input */}
+            <div className="p-4 border-t border-border/40 bg-background/50 flex flex-col gap-2">
+              {attachmentFile && (
+                <div className="flex items-center justify-between px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-xl text-xs text-primary animate-in fade-in">
+                  <span className="truncate max-w-[300px] font-medium flex items-center gap-1.5">
+                    📎 Anexo pronto: <span className="underline">{attachmentFile.name}</span>
+                  </span>
+                  <button onClick={() => setAttachmentFile(null)} className="font-bold p-1 hover:text-destructive">✕</button>
+                </div>
               )}
+              <div className="flex items-center justify-between">
+                <Button variant="outline" size="sm" onClick={handleSuggestAi} disabled={aiThinking}
+                  className="h-8 rounded-full text-[10px] font-bold uppercase tracking-wider gap-1.5 text-primary border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors">
+                  <HugeiconsIcon icon={SparklesIcon} className="size-3" />
+                  Sugerir Resposta via IA
+                </Button>
+                {autopilotMap[activeConvId] && (
+                  <span className="text-[9px] font-bold text-green-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="size-1.5 rounded-full bg-green-500 animate-ping" />
+                    Autopiloto assumirá resposta
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setAttachmentFile(e.target.files[0])
+                    }
+                  }}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sending}
+                  className="h-10 w-10 shrink-0 rounded-xl border-border/40 hover:bg-muted/30 p-0 text-muted-foreground flex items-center justify-center text-base"
+                  title="Anexar arquivo / imagem / áudio"
+                >
+                  📎
+                </Button>
+                <QuickChatActions 
+                  isClient={Boolean(activeConv?.isClient || activeConv?.contactName)}
+                  onSelectAction={(text) => setMessageText(text)}
+                  disabled={sending}
+                />
+                <input
+                  type="text"
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
+                  placeholder="Digite sua mensagem ou legenda..."
+                  className="flex-1 h-10 px-3.5 bg-muted/30 border border-border/40 rounded-xl text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all duration-300"
+                  disabled={sending}
+                />
+                <Button onClick={handleSendMessage} disabled={sending || (!messageText.trim() && !attachmentFile)}
+                  className="h-10 w-10 shrink-0 rounded-xl active:scale-[0.96] transition-transform flex items-center justify-center">
+                  <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
-      
+
       <ConfirmDialog
         open={!!ignoringConvId}
         onOpenChange={(open) => !open && setIgnoringConvId(null)}
@@ -852,6 +894,17 @@ function InboxContent() {
         confirmText="Ignorar Contato"
         cancelText="Cancelar"
         onConfirm={executeIgnoreConv}
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={!!deletingConvId}
+        onOpenChange={(open) => !open && setDeletingConvId(null)}
+        title="Remover conversa"
+        description={`Tem certeza que deseja remover a conversa com "${conversations.find((c) => c.id === deletingConvId)?.contactName || conversations.find((c) => c.id === deletingConvId)?.contactIdentifier || "este contato"}"? O histórico de mensagens será apagado.`}
+        confirmText="Remover"
+        cancelText="Cancelar"
+        onConfirm={executeDeleteConv}
         variant="destructive"
       />
 
