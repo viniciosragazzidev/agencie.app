@@ -126,6 +126,8 @@ export default function DashboardPage() {
   }
 
   useGSAP(() => {
+    if (loading || !dashboardData) return
+
     gsap.from(".hero-text", {
       opacity: 0,
       y: -12,
@@ -142,7 +144,7 @@ export default function DashboardPage() {
       ease: "cubic-bezier(0.32,0.72,0,1)",
       clearProps: "all",
     })
-  }, { scope: containerRef })
+  }, { scope: containerRef, dependencies: [loading, dashboardData] })
 
   useEffect(() => {
     const userId = session?.user?.id
