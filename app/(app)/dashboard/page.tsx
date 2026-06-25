@@ -129,8 +129,12 @@ export default function DashboardPage() {
   useGSAP(() => {
     if (loading || !dashboardData) return
 
-    // Prevent flash of un-animated content by making container visible only when animating
-    gsap.set(containerRef.current, { opacity: 1 })
+    // Animate the main content container in
+    gsap.to(".dashboard-content", {
+      opacity: 1,
+      duration: 0.35,
+      ease: "power2.out",
+    })
 
     gsap.from(".hero-text", {
       opacity: 0,
@@ -138,6 +142,7 @@ export default function DashboardPage() {
       duration: 1.0,
       ease: "cubic-bezier(0.32,0.72,0,1)",
       stagger: 0.08,
+      delay: 0.1,
     })
     gsap.from(".double-bezel-card", {
       y: 20,
@@ -147,6 +152,7 @@ export default function DashboardPage() {
       stagger: 0.06,
       ease: "cubic-bezier(0.32,0.72,0,1)",
       clearProps: "all",
+      delay: 0.15,
     })
   }, { scope: containerRef, dependencies: [loading, dashboardData] })
 
@@ -166,19 +172,30 @@ export default function DashboardPage() {
       .finally(() => setLoading(false))
   }, [session])
 
-  if (loading || !dashboardData) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background h-[calc(100vh-3.5rem)]">
-        <span className="text-xs text-muted-foreground animate-pulse">Carregando dashboard...</span>
-      </div>
-    )
+  const data = dashboardData || {
+    mrr: 0,
+    totalClients: 0,
+    activeClients: 0,
+    atRiskClients: 0,
+    onboardingClients: 0,
+    recentInteractions: [],
+    satisfactionScores: [],
+    avgSatisfaction: 0,
+    ltvCacRatio: 0,
+    conversionRate: 0,
+    clients: []
   }
-
-  const { mrr, totalClients, activeClients, atRiskClients, onboardingClients, recentInteractions, satisfactionScores, avgSatisfaction, ltvCacRatio, conversionRate, clients } = dashboardData
+  const { mrr, totalClients, activeClients, atRiskClients, onboardingClients, recentInteractions, satisfactionScores, avgSatisfaction, ltvCacRatio, conversionRate, clients } = data
 
   return (
-    <div ref={containerRef} style={{ opacity: 0 }} className="flex flex-col w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-background select-none">
-      <main className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 max-w-[1600px] w-full mx-auto overflow-y-auto overflow-x-hidden no-scrollbar">
+    <div ref={containerRef} className="flex flex-col w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-background select-none">
+      {loading || !dashboardData ? (
+        <div className="flex-1 flex items-center justify-center bg-background h-full">
+          <span className="text-xs text-muted-foreground animate-pulse">Carregando dashboard...</span>
+        </div>
+      ) : (
+        <>
+          <main className="dashboard-content opacity-0 flex-1 flex flex-col p-4 md:p-6 lg:p-8 max-w-[1600px] w-full mx-auto overflow-y-auto overflow-x-hidden no-scrollbar">
         {/* Header */}
         <section className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-border/40">
           <div>
@@ -688,7 +705,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Floating toast notification (Double-Bezel style) */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
           <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1 rounded-2xl shadow-2xl">
@@ -701,6 +717,8 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+    </>
+  )}
 
       <style
         dangerouslySetInnerHTML={{
