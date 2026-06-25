@@ -501,10 +501,10 @@ function InboxContent() {
   }
 
   return (
-    <div ref={containerRef} className="flex-1 flex w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-background">
+    <div ref={containerRef} className="flex-1 flex w-full h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)] overflow-hidden bg-background">
       
       {/* Painel esquerdo — lista de conversas */}
-      <div className="w-full lg:w-[320px] xl:w-[380px] shrink-0 border-r border-border/40 bg-sidebar/30 flex flex-col h-full bento-item">
+      <div className="w-full lg:w-[320px] xl:w-[380px] shrink-0 border-r border-border/40 bg-sidebar/30 flex flex-col h-full min-h-0 bento-item">
         
         {/* Header Inbox */}
         <div className="p-4 border-b border-border/40 space-y-4">
@@ -602,13 +602,12 @@ function InboxContent() {
                     </div>
                   ))
                 )}
-                </div>
           </div>
         </ScrollArea>
       </div>
 
       {/* Painel direito — chat ativo */}
-      <div className="hidden lg:flex flex-1 flex-col min-w-0 bg-background h-full bento-item relative">
+      <div className="hidden lg:flex flex-1 flex-col min-w-0 min-h-0 bg-background h-full bento-item relative">
 
               {!activeConvId ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
