@@ -223,15 +223,15 @@ export function QuickActions({
                 </button>
               )
 
-              if (action.tooltip) {
-                return (
-                  <Tooltip key={action.id}>
-                    <TooltipTrigger asChild>{button}</TooltipTrigger>
-                    <TooltipContent side="left" className="bg-card border border-border/40 text-foreground text-[10px] px-2.5 py-1.5 rounded-xl shadow-xl mr-2">
-                      {action.tooltip}
-                    </TooltipContent>
-                  </Tooltip>
-                )
+            if (action.tooltip) {
+              return (
+                <Tooltip key={action.id}>
+                  <TooltipTrigger render={button} />
+                  <TooltipContent className="bg-card border border-border/40 text-foreground text-[10px] px-2.5 py-1.5 rounded-xl shadow-xl">
+                    {action.tooltip}
+                  </TooltipContent>
+                </Tooltip>
+              )
               }
 
               return button

@@ -36,6 +36,20 @@
       "when": 1782402742618,
       "tag": "0004_stormy_ravenous",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782411473618,
+      "tag": "0005_tan_hellcat",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782413840471,
+      "tag": "0006_typical_eternals",
+      "breakpoints": true
     }
   ]
 }

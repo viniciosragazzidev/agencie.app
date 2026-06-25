@@ -95,6 +95,8 @@ export const client = pgTable(
     state: text("state"),
     zip: text("zip"),
     notes: text("notes"),
+    document: text("document"),
+    portalEnabled: boolean("portal_enabled").default(false).notNull(),
     socials: jsonb("socials"),
     websites: jsonb("websites"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -103,7 +105,10 @@ export const client = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("client_userId_idx").on(table.userId)],
+  (table) => [
+    index("client_userId_idx").on(table.userId),
+    index("client_userId_document_idx").on(table.userId, table.document),
+  ],
 );
 
 export const service = pgTable(

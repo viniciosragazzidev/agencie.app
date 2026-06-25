@@ -2,11 +2,15 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { approval, client, channelIntegration, conversation, message } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
+import { authorizePortalClient } from "@/lib/portal-auth"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const clientId = searchParams.get("clientId")
   if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 })
+
+  const authorized = await authorizePortalClient(clientId)
+  if (!authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const approvals = await db.select().from(approval).where(eq(approval.clientId, clientId))
   return NextResponse.json(approvals)
@@ -16,6 +20,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { clientId, userId, title, description, fileUrl, fileType } = body
+
+    const authorized = await authorizePortalClient(clientId)
+    if (!authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const [item] = await db.insert(approval).values({
       id: crypto.randomUUID(),

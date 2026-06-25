@@ -2,11 +2,18 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { approval, clientInteraction } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
+import { authorizePortalClient } from "@/lib/portal-auth"
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const body = await request.json()
   const { status, clientComment, title, description, fileType, fileUrl } = body
+
+  const [existing] = await db.select({ clientId: approval.clientId }).from(approval).where(eq(approval.id, id)).limit(1)
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const authorized = await authorizePortalClient(existing.clientId)
+  if (!authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const updateData: Record<string, any> = {}
 
@@ -39,6 +46,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+
+  const [existing] = await db.select({ clientId: approval.clientId }).from(approval).where(eq(approval.id, id)).limit(1)
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const authorized = await authorizePortalClient(existing.clientId)
+  if (!authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
   await db.delete(approval).where(eq(approval.id, id))
   return NextResponse.json({ ok: true })
 }

@@ -9,11 +9,13 @@ import { NPSSurvey } from "@/components/nps-survey"
 import { ScopeWall } from "@/components/scope-wall"
 import { AdSpendMeter } from "@/components/ad-spend-meter"
 import { QuicklinksHub } from "@/components/quicklinks-hub"
-import { authClient } from "@/lib/auth-client"
 
-export default function ClientPortalPage() {
-  const { data: session } = authClient.useSession()
-  const [clientId, setClientId] = useState<string | null>(null)
+interface PortalContentProps {
+  clientId: string
+  agencyId: string
+}
+
+export default function PortalContent({ clientId }: PortalContentProps) {
   const [tasks, setTasks] = useState<{ id: string; title: string; status: "todo" | "in_progress" | "done" }[]>([])
   const [approvals, setApprovals] = useState<{ id: string; title: string; description?: string; fileType: string; status: "pending" | "approved" | "revision" }[]>([])
   const [onboardingTasks, setOnboardingTasks] = useState<{ id: string; title: string; description?: string; isRequired: boolean; isCompleted: boolean }[]>([])
@@ -23,20 +25,6 @@ export default function ClientPortalPage() {
   const [quicklinks, setQuicklinks] = useState<{ id: string; label: string; url: string; icon?: string }[]>([])
 
   useEffect(() => {
-    async function loadClientId() {
-      try {
-        const res = await fetch("/api/clients")
-        if (res.ok) {
-          const clients = await res.json()
-          if (clients.length > 0) setClientId(clients[0].id)
-        }
-      } catch (e) { console.error(e) }
-    }
-    loadClientId()
-  }, [])
-
-  useEffect(() => {
-    if (!clientId) return
     const endpoints = [
       { url: `/api/client-portal/tasks?clientId=${clientId}`, setter: setTasks },
       { url: `/api/client-portal/approvals?clientId=${clientId}`, setter: setApprovals },
@@ -93,7 +81,6 @@ export default function ClientPortalPage() {
   }
 
   const handleNPS = async (score: number) => {
-    if (!clientId) return
     await fetch("/api/client-portal/satisfaction", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -106,7 +93,7 @@ export default function ClientPortalPage() {
   return (
     <div className="space-y-6">
       <section>
-        <QuicklinksHub links={quicklinks} />
+        <QuicklinksHub links={quicklinks} onDelete={() => {}} onEdit={() => {}} />
       </section>
 
       <section className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem]">
@@ -120,13 +107,13 @@ export default function ClientPortalPage() {
         <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem]">
           <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5">
             <h3 className="font-semibold text-xs text-foreground font-display mb-4">Aprovações Pendentes</h3>
-            <ApprovalPanel items={approvals} onApprove={handleApprove} onRevision={handleRevision} />
+            <ApprovalPanel items={approvals} onApprove={handleApprove} onRevision={handleRevision} onDelete={() => {}} onEdit={() => {}} />
           </div>
         </div>
         <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem]">
           <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5">
             <h3 className="font-semibold text-xs text-foreground font-display mb-4">Escopo Contratado</h3>
-            <ScopeWall scopes={scopes} />
+            <ScopeWall scopes={scopes} onDelete={() => {}} onEdit={() => {}} />
           </div>
         </div>
       </section>
@@ -144,13 +131,13 @@ export default function ClientPortalPage() {
         <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem]">
           <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5">
             <h3 className="font-semibold text-xs text-foreground font-display mb-4">Entregáveis</h3>
-            <AssetsHub assets={assets} />
+            <AssetsHub assets={assets} onDelete={() => {}} onEdit={() => {}} />
           </div>
         </div>
         <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem]">
           <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5">
             <h3 className="font-semibold text-xs text-foreground font-display mb-4">Verba de Anúncios</h3>
-            <AdSpendMeter trackers={adSpendTrackers} />
+            <AdSpendMeter trackers={adSpendTrackers} onDelete={() => {}} onEdit={() => {}} />
           </div>
         </div>
       </section>

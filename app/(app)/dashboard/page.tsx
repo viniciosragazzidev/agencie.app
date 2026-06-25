@@ -25,6 +25,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { NumberTicker } from "@/components/ui/number-ticker"
 
 interface DashboardData {
   mrr: number
@@ -128,6 +129,9 @@ export default function DashboardPage() {
   useGSAP(() => {
     if (loading || !dashboardData) return
 
+    // Prevent flash of un-animated content by making container visible only when animating
+    gsap.set(containerRef.current, { opacity: 1 })
+
     gsap.from(".hero-text", {
       opacity: 0,
       y: -12,
@@ -173,19 +177,19 @@ export default function DashboardPage() {
   const { mrr, totalClients, activeClients, atRiskClients, onboardingClients, recentInteractions, satisfactionScores, avgSatisfaction, ltvCacRatio, conversionRate, clients } = dashboardData
 
   return (
-    <div ref={containerRef} className="flex flex-col w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-background select-none">
+    <div ref={containerRef} style={{ opacity: 0 }} className="flex flex-col w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-background select-none">
       <main className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 max-w-[1600px] w-full mx-auto overflow-y-auto overflow-x-hidden no-scrollbar">
         {/* Header */}
         <section className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-border/40">
           <div>
-            <div className="hero-text flex items-center gap-2 mb-2">
+            <div className="hero-text opacity-0 -translate-y-3 flex items-center gap-2 mb-2">
               <span className="size-2 rounded-full bg-primary animate-pulse" />
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.2em]">
                 Control Center · Receita Recorrente
               </p>
             </div>
-            <h1 className="hero-text text-3xl md:text-4xl font-display font-medium leading-none tracking-tight text-foreground">
-              R$ {mrr.toLocaleString("pt-BR")}
+            <h1 className="hero-text opacity-0 -translate-y-3 text-3xl md:text-4xl font-display font-medium leading-none tracking-tight text-foreground">
+              R$ <NumberTicker value={mrr} />
               <span className="text-muted-foreground/40 text-lg md:text-xl font-normal tracking-normal ml-1.5">
                 /mês
               </span>
@@ -211,9 +215,9 @@ export default function DashboardPage() {
         </section>
 
         {/* KPI Bento Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-12 grid-flow-dense gap-4 pb-8">
+        <section className="dashboard-bento grid grid-cols-1 md:grid-cols-12 grid-flow-dense gap-4 pb-8">
           {/* KPI 1: Total de Clientes */}
-          <div className="double-bezel-card group col-span-1 md:col-span-4 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
+          <div className="double-bezel-card opacity-0 translate-y-5 [scale:0.98] group col-span-1 md:col-span-4 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
             <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] h-full flex flex-col p-5 hover:bg-muted/5 transition-colors duration-500">
               <div className="flex items-center justify-between mb-6">
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.2em]">
@@ -225,20 +229,20 @@ export default function DashboardPage() {
               </div>
               <div className="mt-auto">
                 <div className="text-3xl font-display font-medium tracking-tight text-foreground">
-                  {totalClients}
+                  <NumberTicker value={totalClients} />
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-1.5 font-medium tracking-wide flex items-center gap-1.5">
                   <span className="text-[9px] font-bold tracking-widest bg-primary/10 text-primary ring-1 ring-primary/20 rounded-full px-2 py-0.5 uppercase">
-                    {activeClients} Ativos
+                    <NumberTicker value={activeClients} /> Ativos
                   </span>
                   {atRiskClients > 0 && (
                     <span className="text-[9px] font-bold tracking-widest bg-destructive/10 text-destructive ring-1 ring-destructive/20 rounded-full px-2 py-0.5 uppercase">
-                      {atRiskClients} Em Risco
+                      <NumberTicker value={atRiskClients} /> Em Risco
                     </span>
                   )}
                   {onboardingClients > 0 && (
                     <span className="text-[9px] font-bold tracking-widest bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20 rounded-full px-2 py-0.5 uppercase">
-                      {onboardingClients} Onboarding
+                      <NumberTicker value={onboardingClients} /> Onboarding
                     </span>
                   )}
                 </div>
@@ -247,7 +251,7 @@ export default function DashboardPage() {
           </div>
 
           {/* KPI 2: Churn Risk */}
-          <div className="double-bezel-card group col-span-1 md:col-span-4 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
+          <div className="double-bezel-card opacity-0 translate-y-5 [scale:0.98] group col-span-1 md:col-span-4 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
             <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] h-full flex flex-col p-5 hover:bg-muted/5 transition-colors duration-500">
               <div className="flex items-center justify-between mb-6">
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.2em]">
@@ -260,7 +264,7 @@ export default function DashboardPage() {
               <div className="mt-auto">
                 <div className="flex items-baseline gap-2">
                   <div className="text-3xl font-display font-medium tracking-tight text-foreground">
-                    {churnAlerts.length}
+                    <NumberTicker value={churnAlerts.length} />
                   </div>
                   <span className="text-xs text-muted-foreground font-medium">Contas</span>
                 </div>
@@ -281,7 +285,7 @@ export default function DashboardPage() {
           </div>
 
           {/* KPI 3: NPS Médio */}
-          <div className="double-bezel-card group col-span-1 md:col-span-4 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
+          <div className="double-bezel-card opacity-0 translate-y-5 [scale:0.98] group col-span-1 md:col-span-4 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
             <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] h-full flex flex-col p-5 hover:bg-muted/5 transition-colors duration-500">
               <div className="flex items-center justify-between mb-6">
                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.2em]">
@@ -293,7 +297,7 @@ export default function DashboardPage() {
               </div>
               <div className="mt-auto">
                 <div className="text-3xl font-display font-medium tracking-tight text-foreground">
-                  {avgSatisfaction > 0 ? `${avgSatisfaction.toFixed(1)}` : "—"}
+                  {avgSatisfaction > 0 ? <NumberTicker value={avgSatisfaction} format={(v) => v.toFixed(1)} /> : "—"}
                   {avgSatisfaction > 0 && <span className="text-lg text-muted-foreground/40">/5</span>}
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-1.5 font-medium tracking-wide flex items-center gap-1.5">
@@ -320,7 +324,7 @@ export default function DashboardPage() {
             </div>
           </div>
           {/* KPI 4: LTV/CAC Ratio */}
-          <div className="double-bezel-card group col-span-1 md:col-span-6 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
+          <div className="double-bezel-card opacity-0 translate-y-5 [scale:0.98] group col-span-1 md:col-span-6 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
             <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] h-full flex flex-col p-5 hover:bg-muted/5 transition-colors duration-500">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
@@ -344,7 +348,7 @@ export default function DashboardPage() {
               </div>
               <div className="mt-auto">
                 <div className="text-3xl font-display font-medium tracking-tight text-foreground">
-                  {ltvCacRatio > 0 ? `${ltvCacRatio.toFixed(1)}x` : "—"}
+                  {ltvCacRatio > 0 ? <NumberTicker value={ltvCacRatio} format={(v) => v.toFixed(1)} suffix="x" /> : "—"}
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-1.5 font-medium tracking-wide flex items-center gap-1.5">
                   {ltvCacRatio >= 3.0 ? (
@@ -367,7 +371,7 @@ export default function DashboardPage() {
           </div>
 
           {/* KPI 5: Conversão Global */}
-          <div className="double-bezel-card group col-span-1 md:col-span-6 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
+          <div className="double-bezel-card opacity-0 translate-y-5 [scale:0.98] group col-span-1 md:col-span-6 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:ring-border">
             <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] h-full flex flex-col p-5 hover:bg-muted/5 transition-colors duration-500">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
@@ -391,7 +395,7 @@ export default function DashboardPage() {
               </div>
               <div className="mt-auto">
                 <div className="text-3xl font-display font-medium tracking-tight text-foreground">
-                  {conversionRate > 0 ? `${conversionRate.toFixed(1)}%` : "—"}
+                  {conversionRate > 0 ? <NumberTicker value={conversionRate} format={(v) => v.toFixed(1)} suffix="%" /> : "—"}
                 </div>
                 <div className="text-[10px] text-muted-foreground mt-1.5 font-medium tracking-wide flex items-center gap-1.5">
                   {conversionRate >= 20 ? (
@@ -413,7 +417,7 @@ export default function DashboardPage() {
             </div>
           </div>
           {/* Pipeline de Clientes */}
-          <div className="double-bezel-card col-span-1 md:col-span-8 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] flex flex-col min-h-[340px]">
+          <div className="double-bezel-card opacity-0 translate-y-5 [scale:0.98] col-span-1 md:col-span-8 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] flex flex-col min-h-[340px]">
             <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] flex-1 flex flex-col overflow-hidden">
               <div className="p-4 px-6 border-b border-border/40 flex justify-between items-center bg-muted/5">
                 <h2 className="text-[10px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
@@ -469,7 +473,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Activity Feed */}
-          <div className="double-bezel-card col-span-1 md:col-span-4 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] flex flex-col min-h-[340px]">
+          <div className="double-bezel-card opacity-0 translate-y-5 [scale:0.98] col-span-1 md:col-span-4 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem] flex flex-col min-h-[340px]">
             <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] flex-1 flex flex-col overflow-hidden">
               <div className="p-4 px-6 border-b border-border/40 flex justify-between items-center bg-muted/5">
                 <h2 className="text-[10px] font-semibold tracking-[0.2em] uppercase text-muted-foreground">
@@ -515,7 +519,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Churn Alerts */}
-          <div className="double-bezel-card col-span-1 md:col-span-6 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem]">
+          <div className="double-bezel-card opacity-0 translate-y-5 [scale:0.98] col-span-1 md:col-span-6 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem]">
             <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-6 h-full flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-5">
@@ -539,7 +543,7 @@ export default function DashboardPage() {
           </div>
 
           {/* NPS per Client */}
-          <div className="double-bezel-card col-span-1 md:col-span-6 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem]">
+          <div className="double-bezel-card opacity-0 translate-y-5 [scale:0.98] col-span-1 md:col-span-6 bg-muted/10 ring-1 ring-border/50 p-1.5 rounded-[1.5rem]">
             <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-6 h-full flex flex-col justify-between">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2.5">

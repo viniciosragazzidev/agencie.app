@@ -1,0 +1,1 @@
+ALTER TABLE "client" ADD COLUMN "portal_enabled" boolean DEFAULT false NOT NULL;

@@ -9,6 +9,13 @@ Always apply `gpt-taste` and `high-end-visual-design` principles to any frontend
 - **Icons**: Always use `strokeWidth={1.5}` or thinner for icons. Avoid thick, chunky iconography.
 - **Colors**: ALWAYS use semantic Tailwind tokens from `globals.css` (e.g., `bg-background`, `text-muted-foreground`, `bg-primary`, `bg-card`, `ring-border`, `bg-destructive`). NEVER use hardcoded colors (like `bg-black/10` or `text-gray-500`).
 - **Badges/Alerts**: Use the specific pattern: `text-[9px] font-bold tracking-widest bg-[color]/10 text-[color] ring-1 ring-[color]/20 rounded-full px-2 py-0.5 uppercase`.
+- **Interface Choreography & Fluid Motion**:
+  - *Vertical Cascades (Staggered Entry)*: Elements must enter in sequence (stagger) from bottom to top with a subtle spring/elastic settling effect.
+  - *Magnetic Controls*: Segmented tabs and selector backgrounds must slide magnetically behind texts (using expanding layout transitions).
+  - *Spring Physics*: Progress bars, sliders, and size transitions must bounce or stretch slightly (spring effect) before locking.
+  - *Odometer Effect*: Real-time numbers and metrics must roll/spin vertically rather than snapping.
+  - *Symmetric Hover/Active*: Active elements compress (`active:scale-[0.97]`). Multi-panel layouts must use synchronized, instant cross-hover highlights.
+  - *Soft Fading & Muting*: Disabled/removed elements must transition to grayscale/muted colors and fade out slowly instead of abruptly vanishing.
 <!-- END:high-end-visual-design-rules -->
 
 # Agent Workflow Skills

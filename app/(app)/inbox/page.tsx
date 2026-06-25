@@ -17,6 +17,7 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { MagneticTabs } from "@/components/ui/magnetic-tabs"
 
 interface Message {
   id: string
@@ -489,6 +490,23 @@ function InboxContent() {
     return matchesTab && matchesSearch
   })
 
+  useGSAP(() => {
+    if (loadingConvs || filteredConvs.length === 0) return
+
+    gsap.fromTo(
+      ".conv-item",
+      { opacity: 0, y: 15 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.5,
+        stagger: 0.04,
+        ease: "cubic-bezier(0.32,0.72,0,1)",
+        clearProps: "all",
+      }
+    )
+  }, { dependencies: [filteredConvs, loadingConvs] })
+
   const formatTime = (dateStr: string | null | undefined) => {
     if (!dateStr) return ""
     const d = new Date(dateStr)
@@ -536,14 +554,17 @@ function InboxContent() {
             />
           </div>
           
-          <div className="flex gap-1 overflow-x-auto no-scrollbar">
-            {[{ id: "ALL", name: "Todos" }, { id: "whatsapp", name: "WhatsApp" }, { id: "instagram", name: "Instagram" }, { id: "facebook", name: "Facebook" }].map((tab) => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3 py-1 text-[10px] font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${activeTab === tab.id ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted/30 text-muted-foreground hover:text-foreground border border-border/30"}`}>
-                {tab.name}
-              </button>
-            ))}
-          </div>
+          <MagneticTabs
+            options={[
+              { id: "ALL", name: "Todos" },
+              { id: "whatsapp", name: "WhatsApp" },
+              { id: "instagram", name: "Instagram" },
+              { id: "facebook", name: "Facebook" },
+            ]}
+            activeId={activeTab}
+            onChange={(id) => setActiveTab(id as any)}
+            className="w-full"
+          />
         </div>
 
         {/* Lista de conversas */}
@@ -571,7 +592,8 @@ function InboxContent() {
                 ) : (
                   filteredConvs.map((conv) => (
                     <div key={conv.id} onClick={() => handleSelectConversation(conv.id)}
-                      className={`p-4 hover:bg-muted/10 cursor-pointer transition-all duration-300 flex gap-3 relative ${activeConvId === conv.id ? "bg-muted/10" : ""}`}>
+                      style={{ opacity: 0, transform: 'translateY(15px)' }}
+                      className={`conv-item p-4 hover:bg-muted/10 cursor-pointer transition-all duration-300 flex gap-3 relative ${activeConvId === conv.id ? "bg-muted/10" : ""}`}>
                       {activeConvId === conv.id && (
                         <div className="absolute left-0 top-[20%] w-[3px] h-[60%] bg-primary rounded-r-full" />
                       )}

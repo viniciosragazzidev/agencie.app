@@ -23,6 +23,7 @@ import {
   Coins01Icon,
   Wifi01Icon,
   Link01Icon,
+  LinkSquare02Icon,
   Layers01Icon,
   TimeQuarterPassIcon,
   Edit02Icon,
@@ -84,8 +85,7 @@ const sectionsData = [
       {
         name: "Área do Cliente",
         url: "/client-portal",
-        icon: <HugeiconsIcon icon={UserIcon} strokeWidth={1.5} className="size-4" />,
-        badge: "NEW",
+        icon: <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={1.5} className="size-4" />,
       },
     ],
   },

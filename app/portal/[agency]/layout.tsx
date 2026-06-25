@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import "../globals.css"
+import "../../globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: "Portal do cliente para acompanhar projetos, aprovações e entregas.",
 }
 
-export default function ClientPortalLayout({
+export default function PortalLayout({
   children,
 }: {
   children: React.ReactNode

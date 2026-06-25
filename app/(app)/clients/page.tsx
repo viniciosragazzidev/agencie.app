@@ -21,6 +21,7 @@ interface Client {
   contactName?: string | null
   contactEmail?: string | null
   contactPhone?: string | null
+  document?: string | null
   street?: string | null
   city?: string | null
   state?: string | null
@@ -72,6 +73,7 @@ export default function ClientsPage() {
   const [contactName, setContactName] = useState("")
   const [contactEmail, setContactEmail] = useState("")
   const [contactPhone, setContactPhone] = useState("")
+  const [clientDocument, setClientDocument] = useState("")
   const [street, setStreet] = useState("")
   const [city, setCity] = useState("")
   const [stateVal, setStateVal] = useState("")
@@ -108,6 +110,7 @@ export default function ClientsPage() {
     setContactName("")
     setContactEmail("")
     setContactPhone("")
+    setClientDocument("")
     setStreet("")
     setCity("")
     setStateVal("")
@@ -126,6 +129,7 @@ export default function ClientsPage() {
     setContactName(client.contactName || "")
     setContactEmail(client.contactEmail || "")
     setContactPhone(client.contactPhone || "")
+    setClientDocument(client.document || "")
     setStreet(client.street || "")
     setCity(client.city || "")
     setStateVal(client.state || "")
@@ -152,6 +156,7 @@ export default function ClientsPage() {
       contactName: contactName || null,
       contactEmail: contactEmail || null,
       contactPhone: contactPhone || null,
+      document: clientDocument ? clientDocument.replace(/\D/g, "") : null,
       street: street || null,
       city: city || null,
       state: stateVal || null,
@@ -630,6 +635,19 @@ export default function ClientsPage() {
                       onChange={(e) => setContactPhone(e.target.value)}
                       placeholder="Ex: (11) 98888-8888"
                       className="bg-muted/10 border-border/40"
+                    />
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="c-document" className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">CPF / CNPJ</Label>
+                    <Input
+                      id="c-document"
+                      type="text"
+                      value={clientDocument}
+                      onChange={(e) => setClientDocument(e.target.value)}
+                      placeholder="000.000.000-00"
+                      className="bg-muted/10 border-border/40"
+                      maxLength={18}
                     />
                   </div>
                 </div>

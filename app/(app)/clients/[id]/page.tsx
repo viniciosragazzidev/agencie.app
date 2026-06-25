@@ -28,7 +28,8 @@ import {
   Linkedin01Icon,
   Facebook01Icon,
   TwitterIcon,
-  Copy01Icon
+  Copy01Icon,
+  Alert01Icon
 } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -56,6 +57,8 @@ interface Client {
   contactName?: string | null
   contactEmail?: string | null
   contactPhone?: string | null
+  document?: string | null
+  portalEnabled: boolean
   street?: string | null
   city?: string | null
   state?: string | null
@@ -195,32 +198,51 @@ export default function ClientDashboardPage() {
     if (!newApprovalTitle.trim()) return
     setCreatingApproval(true)
     try {
-      const res = await fetch("/api/client-portal/approvals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: id,
-          userId,
-          title: newApprovalTitle,
-          description: newApprovalDescription,
-          fileType: newApprovalFileType,
-          fileUrl: newApprovalFileUrl || undefined,
-        }),
-      })
-      if (res.ok) {
-        const item = await res.json()
-        setApprovals(prev => [item, ...prev])
-        setNewApprovalTitle("")
-        setNewApprovalDescription("")
-        setNewApprovalFileUrl("")
-        setShowApprovalModalNew(false)
-        triggerToast("Solicitação de aprovação criada!")
+      if (editingApproval) {
+        const res = await fetch(`/api/client-portal/approvals/${editingApproval.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: newApprovalTitle,
+            description: newApprovalDescription,
+            fileType: newApprovalFileType,
+            fileUrl: newApprovalFileUrl || undefined,
+          }),
+        })
+        if (res.ok) {
+          const updated = await res.json()
+          setApprovals(prev => prev.map(a => a.id === editingApproval.id ? { ...a, ...updated } : a))
+          triggerToast("Solicitação de aprovação atualizada!")
+        }
       } else {
-        triggerToast("Erro ao criar aprovação.", "error")
+        const res = await fetch("/api/client-portal/approvals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: id,
+            userId,
+            title: newApprovalTitle,
+            description: newApprovalDescription,
+            fileType: newApprovalFileType,
+            fileUrl: newApprovalFileUrl || undefined,
+          }),
+        })
+        if (res.ok) {
+          const item = await res.json()
+          setApprovals(prev => [item, ...prev])
+          triggerToast("Solicitação de aprovação criada!")
+        } else {
+          triggerToast("Erro ao criar aprovação.", "error")
+        }
       }
+      setNewApprovalTitle("")
+      setNewApprovalDescription("")
+      setNewApprovalFileUrl("")
+      setEditingApproval(null)
+      setShowApprovalModalNew(false)
     } catch (err) {
       console.error(err)
-      triggerToast("Erro ao criar aprovação.", "error")
+      triggerToast("Erro ao processar aprovação.", "error")
     } finally {
       setCreatingApproval(false)
     }
@@ -231,30 +253,48 @@ export default function ClientDashboardPage() {
     if (!newScopeLabel.trim() || !newScopeTotalQuota.trim()) return
     setCreatingScope(true)
     try {
-      const res = await fetch("/api/client-portal/scope", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: id,
-          userId,
-          label: newScopeLabel,
-          totalQuota: parseInt(newScopeTotalQuota),
-          period: newScopePeriod,
-        }),
-      })
-      if (res.ok) {
-        const item = await res.json()
-        setScopes(prev => [...prev, item])
-        setNewScopeLabel("")
-        setNewScopeTotalQuota("")
-        setShowScopeModalNew(false)
-        triggerToast("Item de escopo cadastrado com sucesso!")
+      if (editingScope) {
+        const res = await fetch(`/api/client-portal/scope/${editingScope.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: newScopeLabel,
+            totalQuota: parseInt(newScopeTotalQuota),
+            period: newScopePeriod,
+          }),
+        })
+        if (res.ok) {
+          const updated = await res.json()
+          setScopes(prev => prev.map(s => s.id === editingScope.id ? { ...s, ...updated } : s))
+          triggerToast("Item de escopo atualizado!")
+        }
       } else {
-        triggerToast("Erro ao cadastrar escopo.", "error")
+        const res = await fetch("/api/client-portal/scope", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: id,
+            userId,
+            label: newScopeLabel,
+            totalQuota: parseInt(newScopeTotalQuota),
+            period: newScopePeriod,
+          }),
+        })
+        if (res.ok) {
+          const item = await res.json()
+          setScopes(prev => [...prev, item])
+          triggerToast("Item de escopo cadastrado com sucesso!")
+        } else {
+          triggerToast("Erro ao cadastrar escopo.", "error")
+        }
       }
+      setNewScopeLabel("")
+      setNewScopeTotalQuota("")
+      setEditingScope(null)
+      setShowScopeModalNew(false)
     } catch (err) {
       console.error(err)
-      triggerToast("Erro ao cadastrar escopo.", "error")
+      triggerToast("Erro ao processar escopo.", "error")
     } finally {
       setCreatingScope(false)
     }
@@ -265,32 +305,51 @@ export default function ClientDashboardPage() {
     if (!newAssetName.trim()) return
     setCreatingAsset(true)
     try {
-      const res = await fetch("/api/client-portal/assets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: id,
-          userId,
-          name: newAssetName,
-          category: newAssetCategory,
-          linkUrl: newAssetLinkUrl || undefined,
-          notes: newAssetNotes || undefined,
-        }),
-      })
-      if (res.ok) {
-        const item = await res.json()
-        setClientAssets(prev => [...prev, item])
-        setNewAssetName("")
-        setNewAssetLinkUrl("")
-        setNewAssetNotes("")
-        setShowAssetModalNew(false)
-        triggerToast("Entregável adicionado com sucesso!")
+      if (editingAsset) {
+        const res = await fetch(`/api/client-portal/assets/${editingAsset.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: newAssetName,
+            category: newAssetCategory,
+            linkUrl: newAssetLinkUrl || undefined,
+            notes: newAssetNotes || undefined,
+          }),
+        })
+        if (res.ok) {
+          const updated = await res.json()
+          setClientAssets(prev => prev.map(a => a.id === editingAsset.id ? { ...a, ...updated } : a))
+          triggerToast("Entregável atualizado!")
+        }
       } else {
-        triggerToast("Erro ao adicionar entregável.", "error")
+        const res = await fetch("/api/client-portal/assets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: id,
+            userId,
+            name: newAssetName,
+            category: newAssetCategory,
+            linkUrl: newAssetLinkUrl || undefined,
+            notes: newAssetNotes || undefined,
+          }),
+        })
+        if (res.ok) {
+          const item = await res.json()
+          setClientAssets(prev => [...prev, item])
+          triggerToast("Entregável adicionado com sucesso!")
+        } else {
+          triggerToast("Erro ao adicionar entregável.", "error")
+        }
       }
+      setNewAssetName("")
+      setNewAssetLinkUrl("")
+      setNewAssetNotes("")
+      setEditingAsset(null)
+      setShowAssetModalNew(false)
     } catch (err) {
       console.error(err)
-      triggerToast("Erro ao adicionar entregável.", "error")
+      triggerToast("Erro ao processar entregável.", "error")
     } finally {
       setCreatingAsset(false)
     }
@@ -301,32 +360,50 @@ export default function ClientDashboardPage() {
     if (!newAdSpendMonth.trim() || !newAdSpendPlanned.trim() || !newAdSpendPlatform.trim()) return
     setCreatingAdSpend(true)
     try {
-      const res = await fetch("/api/client-portal/ad-spend", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: id,
-          userId,
-          month: newAdSpendMonth,
-          plannedBudget: newAdSpendPlanned,
-          platform: newAdSpendPlatform,
-          dailyPace: "0.0",
-        }),
-      })
-      if (res.ok) {
-        const item = await res.json()
-        setAdSpendTrackers(prev => [...prev, item])
-        setNewAdSpendMonth("")
-        setNewAdSpendPlanned("")
-        setNewAdSpendPlatform("")
-        setShowAdSpendModalNew(false)
-        triggerToast("Rastreamento de verba configurado!")
+      if (editingAdSpend) {
+        const res = await fetch(`/api/client-portal/ad-spend/${editingAdSpend.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            month: newAdSpendMonth,
+            plannedBudget: newAdSpendPlanned,
+            platform: newAdSpendPlatform,
+          }),
+        })
+        if (res.ok) {
+          const updated = await res.json()
+          setAdSpendTrackers(prev => prev.map(t => t.id === editingAdSpend.id ? { ...t, ...updated } : t))
+          triggerToast("Rastreamento de verba atualizado!")
+        }
       } else {
-        triggerToast("Erro ao criar rastreamento.", "error")
+        const res = await fetch("/api/client-portal/ad-spend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: id,
+            userId,
+            month: newAdSpendMonth,
+            plannedBudget: newAdSpendPlanned,
+            platform: newAdSpendPlatform,
+            dailyPace: "0.0",
+          }),
+        })
+        if (res.ok) {
+          const item = await res.json()
+          setAdSpendTrackers(prev => [...prev, item])
+          triggerToast("Rastreamento de verba configurado!")
+        } else {
+          triggerToast("Erro ao criar rastreamento.", "error")
+        }
       }
+      setNewAdSpendMonth("")
+      setNewAdSpendPlanned("")
+      setNewAdSpendPlatform("")
+      setEditingAdSpend(null)
+      setShowAdSpendModalNew(false)
     } catch (err) {
       console.error(err)
-      triggerToast("Erro ao criar rastreamento.", "error")
+      triggerToast("Erro ao processar rastreamento.", "error")
     } finally {
       setCreatingAdSpend(false)
     }
@@ -337,30 +414,47 @@ export default function ClientDashboardPage() {
     if (!newQuicklinkLabel.trim() || !newQuicklinkUrl.trim()) return
     setCreatingQuicklink(true)
     try {
-      const res = await fetch("/api/client-portal/quicklinks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: id,
-          userId,
-          label: newQuicklinkLabel,
-          url: newQuicklinkUrl.startsWith("http") ? newQuicklinkUrl : `https://${newQuicklinkUrl}`,
-          position: quicklinks.length + 1,
-        }),
-      })
-      if (res.ok) {
-        const item = await res.json()
-        setQuicklinks(prev => [...prev, item])
-        setNewQuicklinkLabel("")
-        setNewQuicklinkUrl("")
-        setShowQuicklinkModalNew(false)
-        triggerToast("Link rápido adicionado com sucesso!")
+      if (editingQuicklink) {
+        const res = await fetch(`/api/client-portal/quicklinks/${editingQuicklink.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: newQuicklinkLabel,
+            url: newQuicklinkUrl.startsWith("http") ? newQuicklinkUrl : `https://${newQuicklinkUrl}`,
+          }),
+        })
+        if (res.ok) {
+          const updated = await res.json()
+          setQuicklinks(prev => prev.map(l => l.id === editingQuicklink.id ? { ...l, ...updated } : l))
+          triggerToast("Link rápido atualizado!")
+        }
       } else {
-        triggerToast("Erro ao adicionar link rápido.", "error")
+        const res = await fetch("/api/client-portal/quicklinks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: id,
+            userId,
+            label: newQuicklinkLabel,
+            url: newQuicklinkUrl.startsWith("http") ? newQuicklinkUrl : `https://${newQuicklinkUrl}`,
+            position: quicklinks.length + 1,
+          }),
+        })
+        if (res.ok) {
+          const item = await res.json()
+          setQuicklinks(prev => [...prev, item])
+          triggerToast("Link rápido adicionado com sucesso!")
+        } else {
+          triggerToast("Erro ao adicionar link rápido.", "error")
+        }
       }
+      setNewQuicklinkLabel("")
+      setNewQuicklinkUrl("")
+      setEditingQuicklink(null)
+      setShowQuicklinkModalNew(false)
     } catch (err) {
       console.error(err)
-      triggerToast("Erro ao adicionar link rápido.", "error")
+      triggerToast("Erro ao processar link rápido.", "error")
     } finally {
       setCreatingQuicklink(false)
     }
@@ -588,6 +682,101 @@ export default function ClientDashboardPage() {
     setQuickNoteContent("")
     setQuickNoteTag("context")
     setShowQuickNoteModal(false)
+  }
+
+  // Delete & Edit handlers for Pós-Venda items
+  const handleDeleteApproval = async (approvalId: string) => {
+    await fetch(`/api/client-portal/approvals/${approvalId}`, { method: "DELETE" })
+    setApprovals(prev => prev.filter(a => a.id !== approvalId))
+    triggerToast("Solicitação de aprovação removida!")
+  }
+
+  const handleDeleteScope = async (scopeId: string) => {
+    await fetch(`/api/client-portal/scope/${scopeId}`, { method: "DELETE" })
+    setScopes(prev => prev.filter(s => s.id !== scopeId))
+    triggerToast("Item de escopo removido!")
+  }
+
+  const handleDeleteAsset = async (assetId: string) => {
+    await fetch(`/api/client-portal/assets/${assetId}`, { method: "DELETE" })
+    setClientAssets(prev => prev.filter(a => a.id !== assetId))
+    triggerToast("Entregável removido!")
+  }
+
+  const handleDeleteQuicklink = async (linkId: string) => {
+    await fetch(`/api/client-portal/quicklinks/${linkId}`, { method: "DELETE" })
+    setQuicklinks(prev => prev.filter(l => l.id !== linkId))
+    triggerToast("Link rápido removido!")
+  }
+
+  const handleDeleteAdSpend = async (trackerId: string) => {
+    await fetch(`/api/client-portal/ad-spend/${trackerId}`, { method: "DELETE" })
+    setAdSpendTrackers(prev => prev.filter(t => t.id !== trackerId))
+    triggerToast("Rastreamento de verba removido!")
+  }
+
+  const handleDeleteNote = async (noteId: string) => {
+    await fetch(`/api/client-portal/notes/${noteId}`, { method: "DELETE" })
+    setClientNotes(prev => prev.filter(n => n.id !== noteId))
+    triggerToast("Nota removida!")
+  }
+
+  // Edit handlers
+  const [editingApproval, setEditingApproval] = useState<any>(null)
+  const [editingScope, setEditingScope] = useState<any>(null)
+  const [editingAsset, setEditingAsset] = useState<any>(null)
+  const [editingAdSpend, setEditingAdSpend] = useState<any>(null)
+  const [editingQuicklink, setEditingQuicklink] = useState<any>(null)
+
+  const handleEditApproval = (item: any) => {
+    setNewApprovalTitle(item.title)
+    setNewApprovalDescription(item.description || "")
+    setNewApprovalFileType(item.fileType)
+    setNewApprovalFileUrl(item.fileUrl || "")
+    setEditingApproval(item)
+    setShowApprovalModalNew(true)
+  }
+
+  const handleEditScope = (item: any) => {
+    setNewScopeLabel(item.label)
+    setNewScopeTotalQuota(String(item.totalQuota))
+    setNewScopePeriod(item.period)
+    setEditingScope(item)
+    setShowScopeModalNew(true)
+  }
+
+  const handleEditAsset = (item: any) => {
+    setNewAssetName(item.name)
+    setNewAssetCategory(item.category)
+    setNewAssetLinkUrl(item.linkUrl || "")
+    setNewAssetNotes(item.notes || "")
+    setEditingAsset(item)
+    setShowAssetModalNew(true)
+  }
+
+  const handleEditAdSpend = (item: any) => {
+    setNewAdSpendMonth(item.month)
+    setNewAdSpendPlanned(item.plannedBudget)
+    setNewAdSpendPlatform(item.platform)
+    setEditingAdSpend(item)
+    setShowAdSpendModalNew(true)
+  }
+
+  const handleEditQuicklink = (item: any) => {
+    setNewQuicklinkLabel(item.label)
+    setNewQuicklinkUrl(item.url)
+    setEditingQuicklink(item)
+    setShowQuicklinkModalNew(true)
+  }
+
+  const handleEditNote = async (noteId: string, content: string, tag: string) => {
+    await fetch(`/api/client-portal/notes/${noteId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content, tag }),
+    })
+    setClientNotes(prev => prev.map(n => n.id === noteId ? { ...n, content, tag } : n))
+    triggerToast("Nota atualizada!")
   }
 
   const handleStartOutreach = () => {
@@ -847,14 +1036,61 @@ export default function ClientDashboardPage() {
                   </Button>
                 </div>
               ) : (
-                <QuicklinksHub links={quicklinks} />
+                <QuicklinksHub links={quicklinks} onDelete={handleDeleteQuicklink} onEdit={handleEditQuicklink} />
+              )}
+            </div>
+          </div>
+
+          {/* Portal do Cliente (Double Bezel) */}
+          <div className="double-bezel-card bento-detail-item bg-muted/10 ring-1 ring-border/40 p-1.5 rounded-[1.5rem]">
+            <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5 border border-border/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={LinkSquare02Icon} strokeWidth={1.5} className="size-4 text-primary" />
+                  <h3 className="font-semibold text-xs text-foreground font-display">Portal do Cliente</h3>
+                </div>
+                <span className={`text-[9px] font-bold tracking-widest ring-1 rounded-full px-2 py-0.5 uppercase ${
+                  client.portalEnabled
+                    ? "bg-green-500/10 text-green-500 ring-green-500/20"
+                    : "bg-muted text-muted-foreground ring-border/30"
+                }`}>
+                  {client.portalEnabled ? "Ativado" : "Desativado"}
+                </span>
+              </div>
+
+              {client.portalEnabled ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-2 bg-muted/5 border border-border/20 rounded-lg">
+                    <span className="text-[10px] text-muted-foreground truncate flex-1 font-mono">
+                      /portal/{session?.user?.username}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/portal/${session?.user?.username}`)
+                        triggerToast("URL do portal copiada!")
+                      }}
+                      className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors"
+                      title="Copiar URL"
+                    >
+                      <HugeiconsIcon icon={Copy01Icon} className="size-3" />
+                    </button>
+                  </div>
+                  {!client.document && (
+                    <p className="text-[9px] text-amber-500 flex items-center gap-1">
+                      <HugeiconsIcon icon={Alert01Icon} className="size-3" />
+                      Cliente precisa de CPF/CNPJ para acessar o portal
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  Ative o portal na página <a href="/client-portal" className="text-primary hover:underline">Área do Cliente</a> para que o cliente acesse.
+                </p>
               )}
             </div>
           </div>
 
         </aside>
-
-        {/* Right Workbench / Operations Panel (Col-span 8) */}
         <section className="xl:col-span-8 flex flex-col h-full overflow-hidden min-h-0">
           
           {/* Custom Tabs Navigation */}
@@ -1108,7 +1344,7 @@ export default function ClientDashboardPage() {
                         </Button>
                       </div>
                     ) : (
-                      <AdSpendMeter trackers={adSpendTrackers} />
+                      <AdSpendMeter trackers={adSpendTrackers} onDelete={handleDeleteAdSpend} onEdit={handleEditAdSpend} />
                     )}
                   </div>
                 </div>
@@ -1173,7 +1409,7 @@ export default function ClientDashboardPage() {
                           </Button>
                         </div>
                       ) : (
-                        <ApprovalPanel items={approvals} onApprove={handleApprove} onRevision={handleRevision} />
+                        <ApprovalPanel items={approvals} onApprove={handleApprove} onRevision={handleRevision} onDelete={handleDeleteApproval} onEdit={handleEditApproval} />
                       )}
                     </div>
                   </div>
@@ -1219,7 +1455,7 @@ export default function ClientDashboardPage() {
                           </Button>
                         </div>
                       ) : (
-                        <ScopeWall scopes={scopes} />
+                        <ScopeWall scopes={scopes} onDelete={handleDeleteScope} onEdit={handleEditScope} />
                       )}
                     </div>
                   </div>
@@ -1262,7 +1498,7 @@ export default function ClientDashboardPage() {
                         </Button>
                       </div>
                     ) : (
-                      <AssetsHub assets={clientAssets} />
+                      <AssetsHub assets={clientAssets} onDelete={handleDeleteAsset} onEdit={handleEditAsset} />
                     )}
                   </div>
                 </div>
@@ -1278,7 +1514,7 @@ export default function ClientDashboardPage() {
                     <HugeiconsIcon icon={Calendar03Icon} strokeWidth={1.5} className="size-4 text-primary" />
                     <h3 className="font-semibold text-xs text-foreground font-display">Anotações Internas (Context Shadow)</h3>
                   </div>
-                  <ClientNotesPanel notes={clientNotes} onAdd={handleAddNote} />
+                  <ClientNotesPanel notes={clientNotes} onAdd={handleAddNote} onDelete={handleDeleteNote} onEdit={handleEditNote} />
                 </div>
               </div>
             )}
@@ -1545,14 +1781,14 @@ export default function ClientDashboardPage() {
           <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-md rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 relative">
             <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-6 relative">
               <button 
-                onClick={() => setShowQuicklinkModalNew(false)}
+                onClick={() => { setEditingQuicklink(null); setShowQuicklinkModalNew(false); }}
                 className="absolute right-4 top-4 p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg hover:bg-muted active:scale-[0.98] transition-all duration-300"
               >
                 <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
               </button>
 
-              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">Adicionar Link Rápido</h3>
-              <p className="text-[10px] text-muted-foreground mb-4">Adicione um link útil de acesso rápido (ex: drive, repositório) para este cliente.</p>
+              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">{editingQuicklink ? "Editar Link Rápido" : "Adicionar Link Rápido"}</h3>
+              <p className="text-[10px] text-muted-foreground mb-4">{editingQuicklink ? "Atualize as informações do link rápido." : "Adicione um link útil de acesso rápido (ex: drive, repositório) para este cliente."}</p>
               
               <form onSubmit={handleCreateQuicklink} className="space-y-4">
                 <div className="grid gap-1.5">
@@ -1610,14 +1846,14 @@ export default function ClientDashboardPage() {
           <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-md rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 relative">
             <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-6 relative">
               <button 
-                onClick={() => setShowApprovalModalNew(false)}
+                onClick={() => { setEditingApproval(null); setShowApprovalModalNew(false); }}
                 className="absolute right-4 top-4 p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg hover:bg-muted active:scale-[0.98] transition-all duration-300"
               >
                 <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
               </button>
 
-              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">Solicitar Aprovação</h3>
-              <p className="text-[10px] text-muted-foreground mb-4">Envie uma entrega (copy, arte, página, documento) para aprovação formal do cliente.</p>
+              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">{editingApproval ? "Editar Solicitação de Aprovação" : "Solicitar Aprovação"}</h3>
+              <p className="text-[10px] text-muted-foreground mb-4">{editingApproval ? "Atualize os detalhes da solicitação de aprovação." : "Envie uma entrega (copy, arte, página, documento) para aprovação formal do cliente."}</p>
               
               <form onSubmit={handleCreateApproval} className="space-y-4">
                 <div className="grid gap-1.5">
@@ -1701,14 +1937,14 @@ export default function ClientDashboardPage() {
           <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-md rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 relative">
             <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-6 relative">
               <button 
-                onClick={() => setShowScopeModalNew(false)}
+                onClick={() => { setEditingScope(null); setShowScopeModalNew(false); }}
                 className="absolute right-4 top-4 p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg hover:bg-muted active:scale-[0.98] transition-all duration-300"
               >
                 <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
               </button>
 
-              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">Adicionar Item de Escopo</h3>
-              <p className="text-[10px] text-muted-foreground mb-4">Adicione uma cota de entregas (ex: 8 posts mensais) para controlar o consumo operacional.</p>
+              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">{editingScope ? "Editar Item de Escopo" : "Adicionar Item de Escopo"}</h3>
+              <p className="text-[10px] text-muted-foreground mb-4">{editingScope ? "Atualize as informações do item de escopo." : "Adicione uma cota de entregas (ex: 8 posts mensais) para controlar o consumo operacional."}</p>
               
               <form onSubmit={handleCreateScope} className="space-y-4">
                 <div className="grid gap-1.5">
