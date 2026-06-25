@@ -133,26 +133,28 @@ export function QuickChatActions({ isClient, onSelectAction, disabled }: QuickCh
         side="top"
         className="w-72 p-2 bg-background/80 backdrop-blur-md border border-border/50 shadow-xl rounded-2xl animate-in fade-in zoom-in-95 duration-200"
       >
-        <DropdownMenuLabel className="px-2 pt-1 pb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-          <span>Ações Rápidas</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[8px] tracking-widest ${isClient ? "bg-green-500/10 text-green-500 ring-1 ring-green-500/20" : "bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"}`}>
-            {isClient ? "CLIENTE" : "LEAD"}
-          </span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-border/40 mb-2" />
-        <DropdownMenuGroup className="max-h-[300px] overflow-y-auto no-scrollbar space-y-1">
-          {actions.map((action, i) => (
-            <DropdownMenuItem
-              key={i}
-              onClick={() => onSelectAction(action.template)}
-              className="px-2 py-2.5 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-3 active:scale-[0.98]"
-            >
-              <div className="size-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <HugeiconsIcon icon={action.icon} className="size-4 text-foreground/80" />
-              </div>
-              <span className="text-xs font-medium text-foreground">{action.label}</span>
-            </DropdownMenuItem>
-          ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="px-2 pt-1 pb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+            <span>Ações Rápidas</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[8px] tracking-widest ${isClient ? "bg-green-500/10 text-green-500 ring-1 ring-green-500/20" : "bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"}`}>
+              {isClient ? "CLIENTE" : "LEAD"}
+            </span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator className="bg-border/40 mb-2" />
+          <div className="max-h-[300px] overflow-y-auto no-scrollbar space-y-1">
+            {actions.map((action, i) => (
+              <DropdownMenuItem
+                key={i}
+                onClick={() => onSelectAction(action.template)}
+                className="px-2 py-2.5 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-3 active:scale-[0.98]"
+              >
+                <div className="size-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <HugeiconsIcon icon={action.icon} className="size-4 text-foreground/80" />
+                </div>
+                <span className="text-xs font-medium text-foreground">{action.label}</span>
+              </DropdownMenuItem>
+            ))}
+          </div>
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
