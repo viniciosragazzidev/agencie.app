@@ -1,6 +1,8 @@
 "use client"
 
 import React from "react"
+import { gsap } from "gsap"
+import { useGSAP } from "@gsap/react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,10 +113,28 @@ export function QuickChatActions({ isClient, onSelectAction, disabled }: QuickCh
     },
   ]
 
-  const actions = isClient ? clientActions : leadActions
+  const [open, setOpen] = React.useState(false)
+  const containerRef = React.useRef<HTMLDivElement>(null)
+
+  useGSAP(() => {
+    if (open && containerRef.current) {
+      gsap.fromTo(
+        ".quick-action-item",
+        { opacity: 0, y: 15, scale: 0.98 },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.4,
+          stagger: 0.03,
+          ease: "back.out(1.2)",
+        }
+      )
+    }
+  }, { dependencies: [open], scope: containerRef })
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger 
         disabled={disabled}
         render={
@@ -131,9 +151,9 @@ export function QuickChatActions({ isClient, onSelectAction, disabled }: QuickCh
       <DropdownMenuContent
         align="start"
         side="top"
-        className="w-72 p-2 bg-background/80 backdrop-blur-md border border-border/50 shadow-xl rounded-2xl animate-in fade-in zoom-in-95 duration-200"
+        className="w-72 p-2 bg-background/80 backdrop-blur-md border border-border/50 shadow-xl rounded-2xl"
       >
-        <DropdownMenuGroup>
+        <DropdownMenuGroup ref={containerRef}>
           <DropdownMenuLabel className="px-2 pt-1 pb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
             <span>Ações Rápidas</span>
             <span className={`px-1.5 py-0.5 rounded-full text-[8px] tracking-widest ${isClient ? "bg-green-500/10 text-green-500 ring-1 ring-green-500/20" : "bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20"}`}>
@@ -146,7 +166,7 @@ export function QuickChatActions({ isClient, onSelectAction, disabled }: QuickCh
               <DropdownMenuItem
                 key={i}
                 onClick={() => onSelectAction(action.template)}
-                className="px-2 py-2.5 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-3 active:scale-[0.98]"
+                className="quick-action-item px-2 py-2.5 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-3 active:scale-[0.98]"
               >
                 <div className="size-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <HugeiconsIcon icon={action.icon} className="size-4 text-foreground/80" />
