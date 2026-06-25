@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: agencie_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: agencie_app
+    ports:
+      - "5432:5432"
+    volumes:
+      - agencie_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  openwa:
+    build:
+      context: ./openwa-src
+      dockerfile: Dockerfile
+    container_name: agencie_openwa
+    restart: unless-stopped
+    ports:
+      - "2785:2785"
+    environment:
+      - PORT=2785
+      - NODE_ENV=production
+      - AUTO_START_SESSIONS=true
+      # SQLite — sem dependência externa
+      - DATABASE_TYPE=sqlite
+      - DATABASE_NAME=./data/openwa.sqlite
+      - DATABASE_SYNCHRONIZE=true
+      - DATABASE_LOGGING=false
+      # Engine whatsapp-web.js (Puppeteer)
+      - ENGINE_TYPE=whatsapp-web.js
+      - SESSION_DATA_PATH=./data/sessions
+      - PUPPETEER_HEADLESS=true
+      - PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage
+      # Storage local
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=./data/media
+      # Redis desabilitado (setup mínimo)
+      - REDIS_ENABLED=false
+      - REDIS_BUILTIN=false
+      - QUEUE_ENABLED=false
+      - CACHE_ENABLED=false
+      - POSTGRES_BUILTIN=false
+      - MINIO_BUILTIN=false
+      # Webhook
+      - WEBHOOK_TIMEOUT=10000
+      - WEBHOOK_MAX_RETRIES=3
+      - WEBHOOK_RETRY_DELAY=5000
+      # Segurança da API
+      - API_MASTER_KEY=agencie_openwa_secret_2025
+    volumes:
+      - agencie_openwa_data:/app/data
+    # Não depende do db (usa SQLite próprio)
+
+volumes:
+  agencie_pgdata:
+  agencie_openwa_data:

@@ -1,0 +1,25 @@
+import { NextResponse } from "next/server"
+import { db } from "@/lib/db"
+import { adSpendTracker } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const clientId = searchParams.get("clientId")
+  if (!clientId) return NextResponse.json({ error: "clientId required" }, { status: 400 })
+
+  const trackers = await db.select().from(adSpendTracker).where(eq(adSpendTracker.clientId, clientId))
+  return NextResponse.json(trackers)
+}
+
+export async function POST(request: Request) {
+  const body = await request.json()
+  const { clientId, userId, month, plannedBudget, platform, dailyPace } = body
+
+  const [tracker] = await db.insert(adSpendTracker).values({
+    id: crypto.randomUUID(),
+    clientId, userId, month, plannedBudget, platform, dailyPace,
+  }).returning()
+
+  return NextResponse.json(tracker)
+}
