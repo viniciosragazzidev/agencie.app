@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useRef } from "react"
+import React, { useRef, useState, useEffect } from "react"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -12,6 +12,8 @@ import {
   LinkSquare02Icon,
   NoteIcon,
   Copy01Icon,
+  Menu01Icon,
+  Cancel01Icon,
 } from "@hugeicons/core-free-icons"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 
@@ -41,18 +43,30 @@ export function QuickActions({
   onAddNote,
   onToast,
 }: QuickActionsProps) {
+  const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useGSAP(() => {
-    gsap.from(".quick-action-item", {
-      y: 10,
-      opacity: 0,
-      duration: 0.5,
-      stagger: 0.05,
-      ease: "cubic-bezier(0.32,0.72,0,1)",
-      clearProps: "all",
-    })
-  }, { scope: containerRef })
+    if (isOpen) {
+      gsap.fromTo(
+        ".quick-action-item",
+        { y: 15, opacity: 0, scale: 0.9 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.5, stagger: -0.04, ease: "cubic-bezier(0.32,0.72,0,1)" }
+      )
+    }
+  }, { scope: containerRef, dependencies: [isOpen] })
+
+  // Fecha ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   const handleWhatsApp = () => {
     if (!client.contactPhone) {
@@ -68,6 +82,7 @@ export function QuickActions({
       `Olá ${client.contactName || client.name}! Aqui é da Kyper. ${greeting}`
     )
     window.open(`https://wa.me/55${phone}?text=${message}`, "_blank")
+    setIsOpen(false)
   }
 
   const handleCopyData = () => {
@@ -82,10 +97,12 @@ export function QuickActions({
     ].join("\n")
     navigator.clipboard.writeText(text)
     onToast("Dados do cliente copiados!")
+    setIsOpen(false)
   }
 
   const handlePortal = () => {
     window.open(`/client-portal/${client.id}`, "_blank")
+    setIsOpen(false)
   }
 
   const hasPhone = !!client.contactPhone
@@ -106,7 +123,7 @@ export function QuickActions({
       icon: SparklesIcon,
       label: "Proposta IA",
       description: "Gerar proposta",
-      onClick: onGenerateProposal,
+      onClick: () => { onGenerateProposal(); setIsOpen(false) },
       variant: "default" as const,
     },
     {
@@ -114,7 +131,7 @@ export function QuickActions({
       icon: Task01Icon,
       label: "Criar Tarefa",
       description: "Adicionar ao Kanban",
-      onClick: onCreateTask,
+      onClick: () => { onCreateTask(); setIsOpen(false) },
       variant: "default" as const,
     },
     {
@@ -122,7 +139,7 @@ export function QuickActions({
       icon: CheckmarkCircle02Icon,
       label: "Aprovação",
       description: "Solicitar aprovação",
-      onClick: onCreateApproval,
+      onClick: () => { onCreateApproval(); setIsOpen(false) },
       variant: "default" as const,
     },
     {
@@ -138,7 +155,7 @@ export function QuickActions({
       icon: NoteIcon,
       label: "Nota Rápida",
       description: "Salvar contexto",
-      onClick: onAddNote,
+      onClick: () => { onAddNote(); setIsOpen(false) },
       variant: "default" as const,
     },
     {
@@ -153,63 +170,90 @@ export function QuickActions({
 
   return (
     <TooltipProvider>
-      <div
-        ref={containerRef}
-        className="bento-detail-item px-6 py-3 shrink-0"
-      >
-        <div className="grid grid-cols-7 gap-3 max-lg:grid-cols-4 max-md:grid-cols-1 max-md:flex max-md:overflow-x-auto max-md:snap-x max-md:snap-mandatory max-md:gap-3 max-md:pb-1">
-          {actions.map((action) => {
-            const isPrimary = action.variant === "primary"
-            const button = (
-              <button
-                key={action.id}
-                onClick={action.onClick}
-                disabled={action.disabled}
-                className={`quick-action-item group flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer active:scale-[0.97] shrink-0 min-w-[80px] max-md:snap-start ${
-                  isPrimary
-                    ? "bg-emerald-500/5 border-emerald-500/15 hover:bg-emerald-500/10 hover:border-emerald-500/30"
-                    : "bg-card border-border/30 hover:bg-muted/50 hover:border-primary/20"
-                } ${action.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                aria-label={action.label}
-              >
-                <div
-                  className={`rounded-xl flex items-center justify-center transition-all duration-300 ${
+      <div ref={containerRef} className="fixed bottom-8 right-8 z-[100] flex flex-col items-end">
+        
+        {/* Dropup Menu */}
+        {isOpen && (
+          <div 
+            ref={menuRef}
+            className="mb-4 flex flex-col gap-2 double-bezel-card bg-card/60 backdrop-blur-2xl ring-1 ring-border/50 p-2 rounded-[1.5rem] shadow-2xl origin-bottom"
+          >
+            {actions.map((action) => {
+              const isPrimary = action.variant === "primary"
+              const button = (
+                <button
+                  key={action.id}
+                  onClick={action.onClick}
+                  disabled={action.disabled}
+                  className={`quick-action-item group flex items-center justify-between gap-4 p-2.5 rounded-xl border transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer active:scale-[0.97] min-w-[200px] ${
                     isPrimary
-                      ? "size-10 bg-emerald-500/10 border border-emerald-500/20"
-                      : "size-9 bg-primary/5 border border-primary/10"
-                  }`}
+                      ? "bg-emerald-500/5 border-emerald-500/15 hover:bg-emerald-500/10 hover:border-emerald-500/30"
+                      : "bg-background/40 border-transparent hover:bg-muted/50 hover:border-border/30"
+                  } ${action.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                  aria-label={action.label}
                 >
-                  <HugeiconsIcon
-                    icon={action.icon}
-                    strokeWidth={1.5}
-                    className={`size-4 ${isPrimary ? "text-emerald-500" : "text-primary"}`}
-                  />
-                </div>
-                <div className="flex flex-col items-center gap-0.5">
-                  <span className="text-[10px] font-semibold text-foreground leading-none">
-                    {action.label}
-                  </span>
-                  <span className="text-[8px] text-muted-foreground/60 text-center leading-tight hidden max-lg:block">
-                    {action.description}
-                  </span>
-                </div>
-              </button>
-            )
-
-            if (action.tooltip) {
-              return (
-                <Tooltip key={action.id}>
-                  <TooltipTrigger render={button} />
-                  <TooltipContent className="bg-card border border-border/40 text-foreground text-[10px] px-2.5 py-1.5 rounded-xl shadow-xl">
-                    {action.tooltip}
-                  </TooltipContent>
-                </Tooltip>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`rounded-lg flex items-center justify-center transition-all duration-300 ${
+                        isPrimary
+                          ? "size-8 bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.15)]"
+                          : "size-8 bg-primary/5 border border-primary/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]"
+                      }`}
+                    >
+                      <HugeiconsIcon
+                        icon={action.icon}
+                        strokeWidth={isPrimary ? 2 : 1.5}
+                        className={`size-4 ${isPrimary ? "text-emerald-500" : "text-primary"}`}
+                      />
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <span className="text-xs font-semibold text-foreground leading-none">
+                        {action.label}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground mt-0.5 leading-none font-medium">
+                        {action.description}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="size-6 rounded-full bg-background/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="size-1.5 rounded-full bg-muted-foreground/30" />
+                  </div>
+                </button>
               )
-            }
 
-            return button
-          })}
-        </div>
+              if (action.tooltip) {
+                return (
+                  <Tooltip key={action.id}>
+                    <TooltipTrigger asChild>{button}</TooltipTrigger>
+                    <TooltipContent side="left" className="bg-card border border-border/40 text-foreground text-[10px] px-2.5 py-1.5 rounded-xl shadow-xl mr-2">
+                      {action.tooltip}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              }
+
+              return button
+            })}
+          </div>
+        )}
+
+        {/* Floating Action Button */}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex items-center justify-center size-14 rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] shadow-xl active:scale-[0.95] z-50 ${
+            isOpen 
+              ? "bg-card border border-border/40 text-foreground rotate-90" 
+              : "bg-primary border border-primary/20 text-primary-foreground hover:shadow-[0_0_20px_rgba(var(--primary),0.4)]"
+          }`}
+        >
+          <HugeiconsIcon 
+            icon={isOpen ? Cancel01Icon : Menu01Icon} 
+            className="size-6 transition-transform duration-500" 
+            strokeWidth={1.5} 
+          />
+        </button>
+
       </div>
     </TooltipProvider>
   )
