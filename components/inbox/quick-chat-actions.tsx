@@ -115,16 +115,18 @@ export function QuickChatActions({ isClient, onSelectAction, disabled }: QuickCh
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="icon"
-          disabled={disabled}
-          className="h-10 w-10 shrink-0 rounded-xl border-border/40 hover:bg-muted/30 p-0 text-amber-500 hover:text-amber-600 flex items-center justify-center transition-colors shadow-sm"
-          title="Ações Rápidas do Chat"
-        >
-          <HugeiconsIcon icon={ZapIcon} className="size-4" strokeWidth={2} />
-        </Button>
+      <DropdownMenuTrigger 
+        disabled={disabled}
+        render={
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-10 w-10 shrink-0 rounded-xl border-border/40 hover:bg-muted/30 p-0 text-amber-500 hover:text-amber-600 flex items-center justify-center transition-colors shadow-sm"
+            title="Ações Rápidas do Chat"
+          />
+        }
+      >
+        <HugeiconsIcon icon={ZapIcon} className="size-4" strokeWidth={2} />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
