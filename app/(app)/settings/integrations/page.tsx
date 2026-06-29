@@ -9,12 +9,16 @@ import {
   CheckmarkCircle02Icon,
   GoogleIcon,
   Loading01Icon,
-  Delete01Icon
+  Delete01Icon,
+  Shield01Icon,
+  Key01Icon,
+  GlobeIcon,
 } from "@hugeicons/core-free-icons"
 import { IntegrationCard } from "@/components/integrations/IntegrationCard"
 import { WppConnectModal } from "@/components/integrations/WppConnectModal"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { SettingsSection } from "@/components/settings"
 
 interface ChannelIntegration {
   id: string
@@ -36,15 +40,31 @@ export default function IntegrationsPage() {
   const [calendarDisconnecting, setCalendarDisconnecting] = useState(false)
 
   useGSAP(() => {
-    gsap.from(".bento-item", {
-      y: 12,
-      opacity: 0,
-      duration: 0.5,
-      stagger: 0.08,
-      ease: "cubic-bezier(0.32,0.72,0,1)",
-      clearProps: "all",
-    })
-  }, { scope: containerRef })
+    if (loading) return
+
+    gsap.fromTo(
+      ".integrations-header",
+      { opacity: 0, y: 8 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.5,
+        ease: "cubic-bezier(0.32,0.72,0,1)",
+      }
+    )
+    gsap.fromTo(
+      ".integrations-section",
+      { opacity: 0, y: 10 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.5,
+        stagger: 0.08,
+        ease: "cubic-bezier(0.32,0.72,0,1)",
+        delay: 0.1,
+      }
+    )
+  }, { scope: containerRef, dependencies: [loading] })
 
   const fetchIntegrations = async () => {
     try {
@@ -125,110 +145,133 @@ export default function IntegrationsPage() {
     }
   }
 
+  const activeCount = integrations.filter((i) => i.status === "active").length
+
+  const securityItems = [
+    {
+      title: "Isolamento por conta",
+      desc: "Cada usuário tem sua própria sessão isolada.",
+      icon: Shield01Icon,
+    },
+    {
+      title: "Dados no seu servidor",
+      desc: "O WhatsApp roda via Docker. Mensagens no seu PostgreSQL.",
+      icon: GlobeIcon,
+    },
+    {
+      title: "Webhook seguro",
+      desc: "Eventos validados com assinatura HMAC SHA-256.",
+      icon: Key01Icon,
+    },
+  ]
+
   return (
     <div ref={containerRef} className="flex-1 flex flex-col w-full h-[calc(100vh-3.5rem)] overflow-auto bg-background">
-      <main className="flex-1 flex flex-col p-4 md:p-6 max-w-[1100px] w-full mx-auto gap-4">
+      <main className="flex-1 flex flex-col p-4 md:p-5 lg:p-6 max-w-[1100px] w-full mx-auto space-y-6">
 
         {/* Header */}
-        <section className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3 bento-item">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="size-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <HugeiconsIcon icon={Settings02Icon} className="size-3.5 text-primary" strokeWidth={1.5} />
-              </div>
-              <h1 className="text-xs font-display font-semibold tracking-tight">Integrações de Canal</h1>
+        <div className="integrations-header">
+          <h1 className="text-lg font-heading font-semibold">
+            Integrações
+          </h1>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Conecte seus canais de atendimento e ferramentas externas
+          </p>
+        </div>
+
+        {/* Channel Integrations */}
+        <SettingsSection
+          title="Canais de Atendimento"
+          description="Cada canal é isolado por conta. Conecte e gerencie seus canais de comunicação."
+        >
+          <div className="integrations-section grid grid-cols-1 md:grid-cols-3 gap-3">
+            <IntegrationCard
+              channel="whatsapp"
+              integration={getIntegration("whatsapp")}
+              onConnect={() => setWppModalOpen(true)}
+              onDisconnect={handleDisconnect}
+            />
+            <IntegrationCard
+              channel="instagram"
+              integration={null}
+              onConnect={() => {}}
+              comingSoon
+            />
+            <IntegrationCard
+              channel="facebook"
+              integration={null}
+              onConnect={() => {}}
+              comingSoon
+            />
+          </div>
+
+          {activeCount > 0 && (
+            <div className="integrations-section flex items-center gap-1.5 mt-3">
+              <div className="size-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+              <span className="text-[9px] font-bold tracking-widest text-green-500 uppercase">
+                {activeCount} canal{activeCount > 1 ? "is" : ""} ativo{activeCount > 1 ? "s" : ""}
+              </span>
             </div>
-            <p className="text-[10px] text-muted-foreground/60 mt-0.5 font-medium">
-              Conecte seus canais de atendimento. Cada canal é isolado por conta.
-            </p>
-          </div>
+          )}
+        </SettingsSection>
 
-          {/* Status geral */}
-          <div className="flex items-center gap-2">
-            {integrations.filter((i) => i.status === "active").length > 0 && (
-              <div className="flex items-center gap-1.5 bg-green-500/10 ring-1 ring-green-500/20 rounded-lg px-2.5 py-1">
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3 text-green-500" strokeWidth={1.5} />
-                <span className="text-xs font-bold text-green-500 uppercase tracking-widest">
-                  {integrations.filter((i) => i.status === "active").length} canal
-                  {integrations.filter((i) => i.status === "active").length > 1 ? "is" : ""} ativo
-                  {integrations.filter((i) => i.status === "active").length > 1 ? "s" : ""}
-                </span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Cards dos canais */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-3 bento-item">
-          <IntegrationCard
-            channel="whatsapp"
-            integration={getIntegration("whatsapp")}
-            onConnect={() => setWppModalOpen(true)}
-            onDisconnect={handleDisconnect}
-          />
-          <IntegrationCard
-            channel="instagram"
-            integration={null}
-            onConnect={() => {}}
-            comingSoon
-          />
-          <IntegrationCard
-            channel="facebook"
-            integration={null}
-            onConnect={() => {}}
-            comingSoon
-          />
-        </section>
-
-        {/* Google Calendar Integration */}
-        <section className="bento-item">
-          <div className="bg-muted/10 ring-1 ring-border/50 p-1 rounded-xl">
-            <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1rem-0.25rem)] p-3 space-y-2.5">
+        {/* Google Calendar */}
+        <div className="integrations-section">
+          <SettingsSection
+            title="Google Calendar"
+            description="Sincronize reuniões e prazos diretamente no seu calendário"
+          >
+            <div className="card-modern hover-lift">
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className={`size-9 rounded-lg ring-1 flex items-center justify-center ${calendarStatus.connected ? "text-blue-500 bg-blue-500/10 ring-blue-500/20" : "bg-muted/50 text-muted-foreground/50 ring-border/30"}`}>
-                    <HugeiconsIcon icon={GoogleIcon} className="size-4" strokeWidth={1.5} />
+                <div className="flex items-center gap-3">
+                  <div className={`rounded-xl p-2 ${calendarStatus.connected ? "bg-blue-500/10" : "bg-muted/50"}`}>
+                    <HugeiconsIcon
+                      icon={GoogleIcon}
+                      strokeWidth={1.5}
+                      className={`h-4 w-4 ${calendarStatus.connected ? "text-blue-500" : "text-muted-foreground/50"}`}
+                    />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-xs font-bold text-foreground/90">Google Calendar</h3>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-heading font-semibold text-foreground">
+                        Google Calendar
+                      </p>
                       {calendarStatus.connected && (
-                        <span className="text-xs font-bold tracking-widest bg-green-500/10 text-green-500 ring-1 ring-green-500/20 rounded-full px-1.5 py-px uppercase">
+                        <span className="text-[9px] font-bold tracking-widest bg-green-500/10 text-green-500 rounded-full px-2 py-0.5 uppercase">
                           Ativo
                         </span>
                       )}
                       {calendarLoading && (
-                        <span className="text-xs font-bold tracking-widest bg-muted text-muted-foreground/50 ring-1 ring-border/30 rounded-full px-1.5 py-px uppercase">
+                        <span className="text-[9px] font-bold tracking-widest bg-muted text-muted-foreground/50 rounded-full px-2 py-0.5 uppercase">
                           Carregando
                         </span>
                       )}
                     </div>
                     {calendarStatus.connected && calendarStatus.email && (
-                      <p className="text-xs text-muted-foreground/50 mt-0.5">{calendarStatus.email}</p>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        {calendarStatus.email}
+                      </p>
                     )}
                   </div>
                 </div>
+
                 {calendarStatus.connected && (
                   <div className="size-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)] mt-1" />
                 )}
               </div>
 
-              <p className="text-[10px] text-muted-foreground/50 leading-relaxed">
-                Sincronize reuniões e prazos diretamente no seu calendário.
-              </p>
-
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mt-3">
                 {!calendarStatus.connected && !calendarLoading && (
                   <button
                     onClick={handleCalendarConnect}
-                    className="flex-1 h-8 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-lg transition-all active:scale-[0.98] uppercase tracking-wider"
+                    className="flex-1 h-7 bg-primary text-primary-foreground text-[10px] font-bold rounded-lg transition-all active:scale-[0.98] uppercase tracking-wider"
                   >
                     Conectar Google Calendar
                   </button>
                 )}
 
                 {calendarLoading && (
-                  <div className="flex-1 h-8 bg-muted/30 text-muted-foreground/50 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 uppercase tracking-wider">
+                  <div className="flex-1 h-7 bg-muted/30 text-muted-foreground/50 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5 uppercase tracking-wider">
                     <HugeiconsIcon icon={Loading01Icon} className="size-2.5 animate-spin" strokeWidth={1.5} />
                     Carregando...
                   </div>
@@ -236,14 +279,14 @@ export default function IntegrationsPage() {
 
                 {calendarStatus.connected && (
                   <div className="flex-1 flex items-center gap-1.5">
-                    <div className="flex-1 h-8 bg-green-500/10 text-green-500 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5">
+                    <div className="flex-1 h-7 bg-green-500/10 text-green-500 text-[10px] font-bold rounded-lg flex items-center justify-center gap-1.5">
                       <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-3" strokeWidth={1.5} />
                       Conectado
                     </div>
                     <button
                       onClick={handleCalendarDisconnect}
                       disabled={calendarDisconnecting}
-                      className="h-8 w-8 flex items-center justify-center bg-destructive/5 hover:bg-destructive/10 text-destructive rounded-lg transition-colors active:scale-[0.98]"
+                      className="h-7 w-7 flex items-center justify-center bg-destructive/5 hover:bg-destructive/10 text-destructive rounded-lg transition-colors active:scale-[0.98]"
                       title="Desconectar"
                     >
                       <HugeiconsIcon icon={calendarDisconnecting ? Loading01Icon : Delete01Icon} className={`size-3 ${calendarDisconnecting ? "animate-spin" : ""}`} strokeWidth={1.5} />
@@ -252,40 +295,32 @@ export default function IntegrationsPage() {
                 )}
               </div>
             </div>
-          </div>
-        </section>
+          </SettingsSection>
+        </div>
 
-        {/* Informações de segurança */}
-        <section className="bento-item">
-          <div className="bg-muted/10 ring-1 ring-border/30 p-1 rounded-xl">
-            <div className="bg-card shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1rem-0.25rem)] p-4">
-              <h3 className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/60 mb-2">
-                Segurança & Privacidade
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[
-                  {
-                    title: "Isolamento por conta",
-                    desc: "Cada usuário tem sua própria sessão isolada.",
-                  },
-                  {
-                    title: "Dados no seu servidor",
-                    desc: "O WhatsApp roda via Docker. Mensagens no seu PostgreSQL.",
-                  },
-                  {
-                    title: "Webhook seguro",
-                    desc: "Eventos validados com assinatura HMAC SHA-256.",
-                  },
-                ].map((item, i) => (
-                  <div key={i} className="space-y-0.5">
-                    <p className="text-[10px] font-bold text-foreground/80">{item.title}</p>
-                    <p className="text-[10px] text-muted-foreground/50 leading-relaxed">{item.desc}</p>
+        {/* Security */}
+        <div className="integrations-section">
+          <SettingsSection
+            title="Segurança & Privacidade"
+            description="Suas integrações são protegidas com isolamento e criptografia"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {securityItems.map((item, i) => (
+                <div key={i} className="card-modern">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-primary/10 p-2 shrink-0">
+                      <HugeiconsIcon icon={item.icon} strokeWidth={1.5} className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-heading font-semibold text-foreground">{item.title}</p>
+                      <p className="text-[9px] text-muted-foreground leading-relaxed">{item.desc}</p>
+                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          </div>
-        </section>
+          </SettingsSection>
+        </div>
 
       </main>
 

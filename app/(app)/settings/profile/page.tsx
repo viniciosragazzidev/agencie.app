@@ -77,11 +77,11 @@ export default function ProfileSettingsPage() {
 
   return (
     <>
-      <div className="space-y-8 pb-20">
+      <div className="space-y-6 pb-20">
         {/* Header */}
         <div>
-          <h1 className="text-xs font-heading font-semibold">Perfil</h1>
-          <p className="text-xs text-muted-foreground mt-1">
+          <h1 className="text-lg font-heading font-semibold">Perfil</h1>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
             Gerencie suas informações pessoais e preferências
           </p>
         </div>

@@ -126,11 +126,11 @@ const usage = [
 
 export default function BillingPage() {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xs font-heading font-semibold">Cobrança</h1>
-        <p className="text-xs text-muted-foreground mt-1">
+        <h1 className="text-lg font-heading font-semibold">Cobrança</h1>
+        <p className="text-[10px] text-muted-foreground mt-0.5">
           Gerencie seu plano e informações de pagamento
         </p>
       </div>

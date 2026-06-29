@@ -283,8 +283,8 @@ export default function ClientsPage() {
         {/* Dynamic header row */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bento-item mb-6">
           <div>
-            <h1 className="text-2xl font-display font-semibold tracking-tight">Clientes CRM</h1>
-            <p className="text-xs text-muted-foreground mt-1">Gerencie a carteira de clientes, projetos ativos, faturamento mensal e ramos de atividade.</p>
+            <h1 className="text-lg font-heading font-semibold tracking-tight">Clientes CRM</h1>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Gerencie a carteira de clientes, projetos ativos, faturamento mensal e ramos de atividade.</p>
           </div>
           <Button 
             onClick={openAddModal}

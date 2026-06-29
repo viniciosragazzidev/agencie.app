@@ -146,7 +146,7 @@ export default function AppLayout({
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border/40 bg-background/95 backdrop-blur-md z-50 px-4 sticky top-0">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border/40 bg-background/95 backdrop-blur-md z-50 px-4 sticky top-0">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mx-2 h-4" />
           
@@ -156,7 +156,7 @@ export default function AppLayout({
                 <React.Fragment key={idx}>
                   <BreadcrumbItem>
                     {crumb.isLast ? (
-                      <BreadcrumbPage className="text-xs font-normal">{crumb.label}</BreadcrumbPage>
+                      <BreadcrumbPage className="text-xs font-medium">{crumb.label}</BreadcrumbPage>
                     ) : (
                       <BreadcrumbLink render={<Link href={crumb.href} />} className="text-xs">
                         {crumb.label}

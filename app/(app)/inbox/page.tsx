@@ -718,8 +718,8 @@ function InboxContent() {
                 <HugeiconsIcon icon={Message01Icon} className="size-4 text-primary" />
               </div>
               <div>
-                <h1 className="text-sm font-display font-semibold tracking-tight leading-none">Inbox Omnichannel</h1>
-                <p className="text-[10px] text-muted-foreground mt-1">Gestão centralizada</p>
+                <h1 className="text-lg font-heading font-semibold tracking-tight leading-none">Inbox Omnichannel</h1>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Gestão centralizada</p>
               </div>
             </div>
 

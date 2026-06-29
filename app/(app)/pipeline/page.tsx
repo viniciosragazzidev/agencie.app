@@ -256,7 +256,7 @@ export default function PipelinePage() {
       {/* Top Header & Summary Bar */}
       <div className="border-b border-border/40 bg-card/30 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0">
         <div>
-          <h1 className="hero-text text-xl font-semibold text-foreground tracking-tight font-display flex items-center gap-2">
+          <h1 className="hero-text text-lg font-heading font-semibold text-foreground tracking-tight flex items-center gap-2">
             <HugeiconsIcon icon={Layers01Icon} strokeWidth={1.5} className="size-5 text-primary" />
             Pipeline Comercial
           </h1>

@@ -115,11 +115,11 @@ export default function SecuritySettingsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xs font-heading font-semibold">Segurança</h1>
-        <p className="text-xs text-muted-foreground mt-1">
+        <h1 className="text-lg font-heading font-semibold">Segurança</h1>
+        <p className="text-[10px] text-muted-foreground mt-0.5">
           Gerencie a segurança da sua conta
         </p>
       </div>

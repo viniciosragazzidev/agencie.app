@@ -993,7 +993,7 @@ export default function ClientDashboardPage() {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold text-foreground tracking-tight">{client.name}</h1>
+              <h1 className="text-lg font-heading font-semibold text-foreground tracking-tight">{client.name}</h1>
               {client.industry && (
                 <span className="text-[9px] font-bold tracking-widest bg-primary/10 text-primary ring-1 ring-primary/20 rounded-full px-2 py-0.5 uppercase">
                   {client.industry}

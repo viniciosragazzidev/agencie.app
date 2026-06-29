@@ -133,9 +133,9 @@ export default function AgencySettingsPage() {
               <div className="size-6 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
                 <HugeiconsIcon icon={Settings02Icon} className="size-3 text-primary" strokeWidth={1.5} />
               </div>
-              <h1 className="text-xs font-heading font-semibold">Configurações da Agência</h1>
+              <h1 className="text-lg font-heading font-semibold">Configurações da Agência</h1>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-[10px] text-muted-foreground mt-0.5">
               Personalize a identidade, documentos e portal do cliente.
             </p>
           </div>

@@ -306,12 +306,12 @@ export default function ProspectsPage() {
         <section className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bento-item">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-display font-semibold tracking-tight">Prospecção AI</h1>
+              <h1 className="text-lg font-heading font-semibold tracking-tight">Prospecção AI</h1>
               <span className="text-[9px] font-bold tracking-widest bg-primary/10 text-primary ring-1 ring-primary/20 rounded-full px-2 py-0.5 uppercase">
                 BETA
               </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1.5 font-medium">Varra a web em tempo real em busca de leads altamente qualificados que precisam de tecnologia.</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">Varra a web em tempo real em busca de leads altamente qualificados que precisam de tecnologia.</p>
           </div>
 
           {/* Quick stats indicators */}

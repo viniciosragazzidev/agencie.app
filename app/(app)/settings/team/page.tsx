@@ -144,12 +144,12 @@ export default function TeamSettingsPage() {
   )
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xs font-heading font-semibold">Equipe</h1>
-          <p className="text-xs text-muted-foreground mt-1">
+          <h1 className="text-lg font-heading font-semibold">Equipe</h1>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
             Gerencie membros e convites da sua equipe
           </p>
         </div>

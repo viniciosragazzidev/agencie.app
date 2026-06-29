@@ -145,7 +145,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<a href="#" />} className="hover:bg-transparent active:bg-transparent px-0">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-card border border-border/50 shadow-sm transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-105">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-card border border-border/50 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
                 <HugeiconsIcon icon={Building01Icon} strokeWidth={1.5} className="size-4 text-muted-foreground/90" />
               </div>
               <div className="grid flex-1 text-left gap-px ml-1 leading-tight overflow-hidden">

@@ -205,7 +205,7 @@ export default function ServicesPage() {
         <div>
           <div className="flex items-center gap-2">
             <HugeiconsIcon icon={Briefcase01Icon} strokeWidth={1.5} className="size-5 text-primary" />
-            <h1 className="text-sm font-semibold text-foreground tracking-tight">Catálogo de Serviços</h1>
+            <h1 className="text-lg font-heading font-semibold text-foreground tracking-tight">Catálogo de Serviços</h1>
           </div>
           <p className="text-[10px] text-muted-foreground">Gerenciamento global de escopos e recorrência comercial</p>
         </div>

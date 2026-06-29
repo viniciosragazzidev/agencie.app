@@ -179,7 +179,7 @@ export default function DictionaryPage() {
               <HugeiconsIcon icon={BookOpen01Icon} strokeWidth={1.5} className="size-4 text-primary" />
             </div>
             <div>
-              <h1 className="text-sm font-display font-semibold tracking-tight leading-none">Dicionário</h1>
+              <h1 className="text-lg font-heading font-semibold tracking-tight leading-none">Dicionário</h1>
               <p className="text-[10px] text-muted-foreground mt-1">Glossário de agência</p>
             </div>
           </div>

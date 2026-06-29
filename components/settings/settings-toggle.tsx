@@ -31,7 +31,7 @@ export function SettingsToggle({
           {label}
         </Label>
         {description && (
-          <p className="text-xs text-muted-foreground">{description}</p>
+          <p className="text-[10px] text-muted-foreground">{description}</p>
         )}
       </div>
       <Switch

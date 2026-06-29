@@ -17,7 +17,7 @@ export function SettingsSection({
   return (
     <div className={cn("space-y-4", className)}>
       <div className="space-y-0.5">
-        <h3 className="text-xs font-heading font-semibold">{title}</h3>
+        <h3 className="text-sm font-heading font-semibold">{title}</h3>
         {description && (
           <p className="text-[10px] text-muted-foreground">{description}</p>
         )}

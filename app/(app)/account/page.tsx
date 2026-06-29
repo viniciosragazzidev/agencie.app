@@ -322,8 +322,8 @@ export default function AccountPage() {
       {/* Header */}
       <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Minha Conta</h1>
-          <p className="text-xs text-muted-foreground">Gerencie suas informações pessoais, segurança, planos e conexões.</p>
+          <h1 className="text-lg font-heading font-semibold tracking-tight text-foreground">Minha Conta</h1>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Gerencie suas informações pessoais, segurança, planos e conexões.</p>
         </div>
         {currentPlan === "pro" && (
           <div className="self-start text-[9px] font-bold tracking-widest bg-primary/10 text-primary ring-1 ring-primary/20 rounded-full px-2.5 py-1 uppercase flex items-center gap-1">
