@@ -9,9 +9,6 @@ import {
   ArrowLeft01Icon, 
   Briefcase01Icon, 
   CpuIcon, 
-  Coins01Icon, 
-  FolderOpenIcon, 
-  CheckmarkCircle02Icon,
   ZapIcon
 } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
@@ -46,6 +43,11 @@ export default function NewClientServicePage() {
     "Fase 3: Otimização Contínua e Escala"
   ])
 
+  const triggerToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3000)
+  }
+
   useEffect(() => {
     async function loadClient() {
       try {
@@ -56,8 +58,8 @@ export default function NewClientServicePage() {
         } else {
           triggerToast("Cliente não encontrado.", "error")
         }
-      } catch (err) {
-        console.error(err)
+      } catch {
+        triggerToast("Erro ao carregar cliente.", "error")
       } finally {
         setLoading(false)
       }
@@ -77,11 +79,6 @@ export default function NewClientServicePage() {
       clearProps: "all"
     })
   }, { scope: containerRef, dependencies: [loading] })
-
-  const triggerToast = (message: string, type: "success" | "error" = "success") => {
-    setToast({ message, type })
-    setTimeout(() => setToast(null), 3000)
-  }
 
   const handleAiScopeGeneration = () => {
     if (!serviceName.trim()) {

@@ -32,7 +32,7 @@ import {
 
 interface QuickChatActionsProps {
   isClient: boolean
-  onSelectAction: (text: string) => void
+  onSelectAction: (actionId: string) => void
   disabled?: boolean
 }
 
@@ -41,52 +41,52 @@ export function QuickChatActions({ isClient, onSelectAction, disabled }: QuickCh
     {
       label: "Enviar Proposta Comercial",
       icon: File01Icon,
-      template: "Olá! Segue o link com a nossa proposta comercial detalhada: [LINK DA PROPOSTA]",
+      actionId: "send_proposal",
     },
     {
       label: "Enviar Serviços e Preços",
       icon: CheckmarkBadge01Icon,
-      template: "Aqui está a nossa lista completa de serviços e a tabela de preços atualizada: [LINK DOS SERVIÇOS]",
+      actionId: "send_services",
     },
     {
       label: "Enviar Contrato em PDF",
       icon: File01Icon,
-      template: "Segue o contrato para análise e assinatura digital. Qualquer dúvida, estou à disposição! [LINK DO CONTRATO]",
+      actionId: "send_contract",
     },
     {
       label: "Solicitar Pagamento",
       icon: Invoice01Icon,
-      template: "Olá! O link para pagamento / fatura do seu projeto já está disponível aqui: [LINK DE PAGAMENTO]",
+      actionId: "request_payment",
     },
     {
       label: "Agendar Reunião / Call",
       icon: Calendar01Icon,
-      template: "Vamos fazer uma call rápida? Escolha o melhor horário na minha agenda: [LINK DA AGENDA]",
+      actionId: "schedule_meeting",
     },
     {
       label: "Solicitar Feedback (NPS)",
       icon: StarIcon,
-      template: "Como estamos indo? Adoraríamos ouvir o seu feedback rápido sobre o nosso serviço: [LINK DA PESQUISA]",
+      actionId: "request_feedback",
     },
     {
       label: "Enviar Relatório de Resultados",
       icon: ChartBarLineIcon,
-      template: "Aqui está o relatório de resultados deste mês com os principais indicadores! [LINK DO RELATÓRIO]",
+      actionId: "send_report",
     },
     {
       label: "Enviar Form de Briefing",
       icon: ClipboardIcon,
-      template: "Para iniciarmos, por favor preencha este formulário rápido de briefing: [LINK DO BRIEFING]",
+      actionId: "send_briefing",
     },
     {
       label: "Atualizar Status do Projeto",
       icon: RefreshIcon,
-      template: "Passando para atualizar o status do projeto! Estamos na fase [FASE] e a previsão de entrega é [DATA].",
+      actionId: "update_status",
     },
     {
       label: "Solicitar Aprovação de Material",
       icon: CheckmarkCircle02Icon,
-      template: "O material está pronto! Dê uma olhada no anexo/link e nos avise se está aprovado. [LINK/ANEXO]",
+      actionId: "request_approval",
     },
   ]
 
@@ -94,22 +94,22 @@ export function QuickChatActions({ isClient, onSelectAction, disabled }: QuickCh
     {
       label: "Qualificar Lead",
       icon: Search01Icon,
-      template: "Olá! Para entender melhor o seu projeto e como podemos ajudar, poderia me contar um pouco mais sobre os seus objetivos?",
+      actionId: "qualify_lead",
     },
     {
       label: "Enviar Apresentação (Pitch)",
       icon: Building03Icon,
-      template: "Muito prazer! Somos a Kyper Agência. Segue a nossa apresentação completa explicando como atuamos: [LINK DA APRESENTAÇÃO]",
+      actionId: "send_pitch",
     },
     {
       label: "Agendar Call de Descoberta",
       icon: Calendar01Icon,
-      template: "Vamos bater um papo rápido para entendermos melhor a sua necessidade? Agende um horário aqui: [LINK DA AGENDA]",
+      actionId: "schedule_discovery",
     },
     {
       label: "Ação: Tornar Cliente",
       icon: UserAdd01Icon,
-      template: "Ótimo! Vamos dar andamento. Qual é o seu e-mail e CNPJ/CPF para fazermos o cadastro em nosso sistema?",
+      actionId: "convert_client",
     },
   ]
 
@@ -162,10 +162,13 @@ export function QuickChatActions({ isClient, onSelectAction, disabled }: QuickCh
           </DropdownMenuLabel>
           <DropdownMenuSeparator className="bg-border/40 mb-2" />
           <div className="max-h-[300px] overflow-y-auto no-scrollbar space-y-1">
-            {actions.map((action, i) => (
+            {(isClient ? clientActions : leadActions).map((action, i) => (
               <DropdownMenuItem
                 key={i}
-                onClick={() => onSelectAction(action.template)}
+                onClick={() => {
+                  setOpen(false)
+                  onSelectAction(action.actionId)
+                }}
                 className="quick-action-item px-2 py-2.5 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors flex items-center gap-3 active:scale-[0.98]"
               >
                 <div className="size-8 rounded-lg bg-muted flex items-center justify-center shrink-0">

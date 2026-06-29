@@ -19,6 +19,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
+import { OnboardingProvider } from "@/components/onboarding/onboarding-provider"
+import { authClient } from "@/lib/auth-client"
 
 export default function AppLayout({
   children,
@@ -26,6 +28,8 @@ export default function AppLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const { data: session } = authClient.useSession()
+  const userId = session?.user?.id || ""
 
   // Generate breadcrumb items based on the pathname
   const getBreadcrumbs = () => {
@@ -169,7 +173,9 @@ export default function AppLayout({
             <ThemeToggle />
           </div>
         </header>
-        {children}
+        <OnboardingProvider userId={userId}>
+          {children}
+        </OnboardingProvider>
       </SidebarInset>
     </SidebarProvider>
   )

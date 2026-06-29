@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { projectTask } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import { authorizePortalClient } from "@/lib/portal-auth"
 
 export async function GET(request: Request) {
@@ -12,7 +12,13 @@ export async function GET(request: Request) {
   const authorized = await authorizePortalClient(clientId)
   if (!authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const tasks = await db.select().from(projectTask).where(eq(projectTask.clientId, clientId))
+  const projectId = searchParams.get("projectId")
+  const conditions = [eq(projectTask.clientId, clientId)]
+  if (projectId) {
+    conditions.push(eq(projectTask.projectId, projectId))
+  }
+
+  const tasks = await db.select().from(projectTask).where(and(...conditions))
   return NextResponse.json(tasks)
 }
 

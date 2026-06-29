@@ -18,14 +18,21 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json()
-  const { clientId, userId, label, totalQuota, period } = body
+  const { clientId, userId, label, totalQuota, period, price, billing, status } = body
 
   const authorized = await authorizePortalClient(clientId)
   if (!authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const [scope] = await db.insert(clientScope).values({
     id: crypto.randomUUID(),
-    clientId, userId, label, totalQuota, period,
+    clientId,
+    userId,
+    label,
+    totalQuota,
+    period,
+    price: price || "0",
+    billing: billing || "mensal",
+    status: status || "active",
   }).returning()
 
   return NextResponse.json(scope)

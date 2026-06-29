@@ -669,12 +669,12 @@ export default function HomePage() {
             © 2026 Agencie.app. Todos os direitos reservados.
           </p>
           <div className="flex gap-4 text-[11px] text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors duration-300">
+            <Link href="/termos" className="hover:text-foreground transition-colors duration-300">
               Termos
-            </a>
-            <a href="#" className="hover:text-foreground transition-colors duration-300">
+            </Link>
+            <Link href="/privacidade" className="hover:text-foreground transition-colors duration-300">
               Privacidade
-            </a>
+            </Link>
           </div>
         </div>
       </footer>

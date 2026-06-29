@@ -1,8 +1,41 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { client, user } from "@/lib/db/schema"
+import { client, user, agencySettings } from "@/lib/db/schema"
 import { eq, and, ilike } from "drizzle-orm"
 import { signPortalToken, setPortalCookie, clearPortalCookie } from "@/lib/portal-auth"
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ agency: string }> }
+) {
+  const { agency } = await params
+
+  try {
+    const [agencyUser] = await db
+      .select()
+      .from(user)
+      .where(ilike(user.username, agency))
+      .limit(1)
+
+    if (!agencyUser) {
+      return NextResponse.json({ agencyName: "Área do Cliente" })
+    }
+
+    const [settings] = await db
+      .select()
+      .from(agencySettings)
+      .where(eq(agencySettings.userId, agencyUser.id))
+      .limit(1)
+
+    return NextResponse.json({
+      agencyName: settings?.agencyName || agencyUser.name || "Área do Cliente",
+      agencyLogo: settings?.agencyLogo || null,
+      primaryColor: settings?.primaryColor || "#111827",
+    })
+  } catch {
+    return NextResponse.json({ agencyName: "Área do Cliente" })
+  }
+}
 
 export async function POST(
   req: NextRequest,

@@ -170,13 +170,13 @@ export function QuickActions({
 
   return (
     <TooltipProvider>
-      <div ref={containerRef} className="fixed bottom-8 right-8 z-[100] flex flex-col items-end">
+      <div ref={containerRef} data-tour="quick-actions" className="fixed bottom-16 right-8 z-[100] flex flex-col items-end">
         
         {/* Dropup Menu */}
         {isOpen && (
           <div 
             ref={menuRef}
-            className="mb-4 flex flex-col gap-2 double-bezel-card bg-card/60 backdrop-blur-2xl ring-1 ring-border/50 p-2 rounded-[1.5rem] shadow-2xl origin-bottom"
+            className="mb-4 flex flex-col gap-2 bg-card ring-1 ring-border/50 p-2 rounded-[1.5rem] shadow-2xl origin-bottom"
           >
             {actions.map((action) => {
               const isPrimary = action.variant === "primary"
@@ -189,7 +189,7 @@ export function QuickActions({
                   className={`quick-action-item group flex items-center justify-between gap-4 p-2.5 rounded-xl border transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer active:scale-[0.97] min-w-[200px] ${
                     isPrimary
                       ? "bg-emerald-500/5 border-emerald-500/15 hover:bg-emerald-500/10 hover:border-emerald-500/30"
-                      : "bg-background/40 border-transparent hover:bg-muted/50 hover:border-border/30"
+                      : "bg-background border-transparent hover:bg-muted hover:border-border/30"
                   } ${action.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
                   aria-label={action.label}
                 >
@@ -217,7 +217,7 @@ export function QuickActions({
                     </div>
                   </div>
                   
-                  <div className="size-6 rounded-full bg-background/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="size-6 rounded-full bg-background flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="size-1.5 rounded-full bg-muted-foreground/30" />
                   </div>
                 </button>

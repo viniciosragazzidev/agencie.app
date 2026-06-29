@@ -190,6 +190,36 @@ export async function sendWppMediaMessage(
 }
 
 /**
+ * Envia uma enquete (poll) nativa do WhatsApp.
+ * @param sessionId - UUID da sessão OpenWA
+ * @param to - número com DDI
+ * @param pollName - título da enquete
+ * @param pollOptions - opções de escolha da enquete (array de strings)
+ */
+export async function sendWppPollMessage(
+  sessionId: string,
+  to: string,
+  pollName: string,
+  pollOptions: string[]
+): Promise<OpenWAMessage> {
+  const chatId = to.includes("@") ? to : `${to}@c.us`
+  console.log("[OpenWA] sendWppPollMessage chamado:", { sessionId, chatId, pollName, optionsCount: pollOptions.length })
+  const res = await fetch(`${OPENWA_BASE}/api/sessions/${sessionId}/messages/send-poll`, {
+    method: "POST",
+    headers: openwaHeaders,
+    body: JSON.stringify({ chatId, name: pollName, options: pollOptions }),
+  })
+  const resBody = await res.text().catch(() => "")
+  if (!res.ok) {
+    console.error("[OpenWA] sendWppPollMessage falhou:", res.status, resBody)
+    throw new Error(`OpenWA sendWppPollMessage failed: ${res.status}: ${resBody}`)
+  }
+  console.log("[OpenWA] sendWppPollMessage sucesso:", resBody.substring(0, 200))
+  return JSON.parse(resBody)
+}
+
+
+/**
  * Registra o webhook do Agencie.app no OpenWA para receber mensagens em tempo real.
  */
 export async function registerWppWebhook(
@@ -234,6 +264,37 @@ export function verifyOpenWASignature(
     .update(rawBody)
     .digest("hex")
   return `sha256=${expected}` === signatureHeader
+}
+
+/**
+ * Envia uma mensagem interativa (lista/opções) via WhatsApp.
+ * @param sessionId - UUID da sessão OpenWA
+ * @param to - número com DDI
+ * @param body - texto da mensagem (pergunta)
+ * @param buttonText - texto do botão que abre a lista
+ * @param sections - seções com opções
+ */
+export async function sendWppInteractiveMessage(
+  sessionId: string,
+  to: string,
+  body: string,
+  buttonText: string,
+  sections: { title: string; rows: { id: string; title: string; description?: string }[] }[]
+): Promise<OpenWAMessage> {
+  const chatId = to.includes("@") ? to : `${to}@c.us`
+  console.log("[OpenWA] sendWppInteractiveMessage chamado:", { sessionId, chatId, bodyLen: body.length })
+  const res = await fetch(`${OPENWA_BASE}/api/sessions/${sessionId}/messages/send-interactive`, {
+    method: "POST",
+    headers: openwaHeaders,
+    body: JSON.stringify({ chatId, body, buttonText, sections }),
+  })
+  const resBody = await res.text().catch(() => "")
+  if (!res.ok) {
+    console.error("[OpenWA] sendWppInteractiveMessage falhou:", res.status, resBody)
+    throw new Error(`OpenWA sendWppInteractiveMessage failed: ${res.status}: ${resBody}`)
+  }
+  console.log("[OpenWA] sendWppInteractiveMessage sucesso:", resBody.substring(0, 200))
+  return JSON.parse(resBody)
 }
 
 /**

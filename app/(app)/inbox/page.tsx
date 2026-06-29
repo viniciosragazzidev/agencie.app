@@ -6,7 +6,7 @@ import gsap from "gsap"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Search01Icon, UserIcon, ArrowRight01Icon, SparklesIcon,
-  Message01Icon, Settings01Icon, WifiOff01Icon, BlocksIcon,
+  Message01Icon, Settings01Icon, WifiOff01Icon, BlocksIcon, BlockedIcon,
 } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,8 @@ import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { MagneticTabs } from "@/components/ui/magnetic-tabs"
 import { QuickChatActions } from "@/components/inbox/quick-chat-actions"
+import { QuickActionModals } from "@/components/inbox/quick-action-modals"
+import { InteractiveMessageComposer } from "@/components/inbox/interactive-message-composer"
 
 interface Message {
   id: string
@@ -62,6 +64,50 @@ const CHANNEL_LETTER: Record<string, string> = {
   facebook: "F",
 }
 
+function formatWppText(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = []
+  // Split by formatting markers, keeping the delimiters
+  const regex = /(```[\s\S]*?```|`[^`]+`|\*[^*]+\*|_[^_]+_|~[^~]+~)/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let key = 0
+
+  while ((match = regex.exec(text)) !== null) {
+    // Text before the match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+
+    const token = match[0]
+    if (token.startsWith("```") && token.endsWith("```")) {
+      const code = token.slice(3, -3)
+      parts.push(
+        <pre key={key++} className="bg-black/20 rounded-lg p-2 my-1 text-[11px] font-mono overflow-x-auto whitespace-pre-wrap">{code}</pre>
+      )
+    } else if (token.startsWith("`") && token.endsWith("`")) {
+      parts.push(
+        <code key={key++} className="bg-black/20 rounded px-1 py-0.5 text-[11px] font-mono">{token.slice(1, -1)}</code>
+      )
+    } else if (token.startsWith("*") && token.endsWith("*")) {
+      parts.push(<strong key={key++} className="font-semibold">{token.slice(1, -1)}</strong>)
+    } else if (token.startsWith("_") && token.endsWith("_")) {
+      parts.push(<em key={key++}>{token.slice(1, -1)}</em>)
+    } else if (token.startsWith("~") && token.endsWith("~")) {
+      parts.push(<span key={key++} className="line-through opacity-70">{token.slice(1, -1)}</span>)
+    } else {
+      parts.push(token)
+    }
+
+    lastIndex = match.index + token.length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  return parts
+}
+
 function InboxContent() {
   const containerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -79,10 +125,32 @@ function InboxContent() {
   const [autopilotMap, setAutopilotMap] = useState<Record<string, boolean>>({})
   const [loadingConvs, setLoadingConvs] = useState(true)
   const [loadingMsgs, setLoadingMsgs] = useState(false)
-  const [testingWpp, setTestingWpp] = useState(false)
+
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null)
   const [ignoringConvId, setIgnoringConvId] = useState<string | null>(null)
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null)
+  const [activeActionModal, setActiveActionModal] = useState<string | null>(null)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
+  const [showInteractiveComposer, setShowInteractiveComposer] = useState(false)
+  const [sendingInteractive, setSendingInteractive] = useState(false)
+  const [annotatingMsgId, setAnnotatingMsgId] = useState<string | null>(null)
+  const [annotations, setAnnotations] = useState<Record<string, { id: string; summary: string; explanation: string; tag: string; messageContent?: string }>>({})
+  const [showAnnotationsPanel, setShowAnnotationsPanel] = useState(false)
+
+  // Lightbox: Escape key + body scroll lock
+  useEffect(() => {
+    if (!lightboxImage) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxImage(null)
+    }
+    document.addEventListener("keydown", handleKey)
+    return () => {
+      document.body.style.overflow = prev
+      document.removeEventListener("keydown", handleKey)
+    }
+  }, [lightboxImage])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const searchParams = useSearchParams()
   const autoContactName = searchParams.get("contactName")
@@ -161,6 +229,7 @@ function InboxContent() {
       setActiveConvId(found.id)
       setAiSuggestion("")
       fetchMessages(found.id)
+      fetchAnnotations(found.id)
       setConversations((prev) =>
         prev.map((c) => c.id === found.id ? { ...c, unreadCount: "0" } : c)
       )
@@ -206,7 +275,17 @@ function InboxContent() {
     try {
       const res = await fetch("/api/conversations")
       const data = await res.json()
-      setConversations(data.conversations || [])
+      const raw = data.conversations || []
+      // Client-side dedup by externalChatId (safety net for race conditions)
+      const seen = new Map<string, typeof raw[0]>()
+      for (const conv of raw) {
+        const key = `${conv.integrationId}:${conv.contactIdentifier || conv.externalChatId || ""}`
+        const existing = seen.get(key)
+        if (!existing || new Date(conv.lastMessageAt || 0) > new Date(existing.lastMessageAt || 0)) {
+          seen.set(key, conv)
+        }
+      }
+      setConversations(Array.from(seen.values()))
     } catch {
       toast.error("Erro ao carregar conversas")
     } finally {
@@ -247,8 +326,12 @@ function InboxContent() {
         setActiveConvId((current) => {
           if (current === conversationId) {
             setMessages((prev) => {
-              const exists = prev.some((m) => m.id === newMsg.id)
-              return exists ? prev : [...prev, newMsg]
+              // Dedup: verificar por ID e tambem por content+direction para mensagens duplicadas
+              const existsById = prev.some((m) => m.id === newMsg.id)
+              if (existsById) return prev
+              const existsByContent = prev.some((m) => m.content === newMsg.content && m.direction === newMsg.direction && Math.abs(new Date(m.sentAt).getTime() - new Date(newMsg.sentAt).getTime()) < 2000)
+              if (existsByContent) return prev
+              return [...prev, newMsg]
             })
           }
           return current
@@ -257,9 +340,23 @@ function InboxContent() {
         // Atualizar lista de conversas
         setActiveConvId((currentActive) => {
           setConversations((prev) => {
-            const idx = prev.findIndex((c) => c.id === conversationId)
+        // Client-side dedup: check if this conversation already exists by externalChatId
+        const convIdentifier = (updatedConv?.contactIdentifier && updatedConv.contactIdentifier.trim()) || updatedConv?.externalChatId || ""
+        const externalKey = updatedConv ? `${updatedConv.integrationId}:${convIdentifier}` : null
+        let idx = prev.findIndex((c) => c.id === conversationId)
+        if (idx === -1 && externalKey) {
+          idx = prev.findIndex((c) => {
+            const k = `${c.integrationId}:${(c.contactIdentifier && c.contactIdentifier.trim()) || c.externalChatId || ""}`
+            return k === externalKey
+          })
+        }
             if (idx === -1) {
               fetchConversations()
+              return prev
+            }
+            // Prevent duplicate: skip if a different conversation has the same external key
+            if (idx !== -1 && prev[idx].id !== conversationId && externalKey) {
+              // The existing entry is the canonical one, skip this update
               return prev
             }
             const updated = [...prev]
@@ -290,11 +387,11 @@ function InboxContent() {
         setActiveConvId((current) => {
           if (current === conversationId) {
             setMessages((prev) => {
-              // Substituir temp pela real ou adicionar se não existe
-              const idx = prev.findIndex((m) => m.id === sentMsg.id || m.id.startsWith("temp-") && m.content === sentMsg.content && m.direction === "outbound")
-              if (idx !== -1) {
+              // Substituir temp pela real ou adicionar se nao existe
+              const tempIdx = prev.findIndex((m) => m.id.startsWith("temp-") && m.content === sentMsg.content && m.direction === "outbound")
+              if (tempIdx !== -1) {
                 const updated = [...prev]
-                updated[idx] = sentMsg
+                updated[tempIdx] = sentMsg
                 return updated
               }
               return prev.some((m) => m.id === sentMsg.id) ? prev : [...prev, sentMsg]
@@ -327,7 +424,20 @@ function InboxContent() {
     try {
       const res = await fetch(`/api/conversations/${convId}/messages`)
       const data = await res.json()
-      setMessages(data.messages || [])
+      const raw: Message[] = data.messages || []
+      // Dedup by ID first, then by content+direction+timestamp as safety net
+      const seenIds = new Set<string>()
+      const seenContent = new Set<string>()
+      const deduped = raw.filter((m) => {
+        if (seenIds.has(m.id)) return false
+        seenIds.add(m.id)
+        // Content+direction+timestamp dedup (within 2s window)
+        const contentKey = `${m.direction}:${m.content}:${Math.round(new Date(m.sentAt).getTime() / 2000)}`
+        if (seenContent.has(contentKey)) return false
+        seenContent.add(contentKey)
+        return true
+      })
+      setMessages(deduped)
     } catch {
       toast.error("Erro ao carregar mensagens")
     } finally {
@@ -335,11 +445,67 @@ function InboxContent() {
     }
   }
 
+  const fetchAnnotations = async (convId: string) => {
+    try {
+      const res = await fetch(`/api/conversations/${convId}/annotations`)
+      const data = await res.json()
+      const map: Record<string, { id: string; summary: string; explanation: string; tag: string; messageContent?: string }> = {}
+      for (const ann of data.annotations || []) {
+        map[ann.messageId] = ann
+      }
+      setAnnotations(map)
+    } catch {}
+  }
+
+  const handleAnnotateMessage = async (msg: Message) => {
+    if (!activeConvId || annotatingMsgId) return
+    setAnnotatingMsgId(msg.id)
+    try {
+      const res = await fetch(`/api/conversations/${activeConvId}/annotations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId: msg.id, messageContent: msg.content }),
+      })
+      const data = await res.json()
+      if (res.ok && data.annotation) {
+        setAnnotations(prev => ({ ...prev, [msg.id]: data.annotation }))
+        toast.success("Anotação criada!")
+      } else {
+        toast.error(data.error || "Erro ao criar anotação")
+      }
+    } catch {
+      toast.error("Erro ao criar anotação")
+    } finally {
+      setAnnotatingMsgId(null)
+    }
+  }
+
+  const handleDeleteAnnotation = async (annotationId: string, msgId: string) => {
+    if (!activeConvId) return
+    try {
+      const res = await fetch(`/api/conversations/${activeConvId}/annotations/${annotationId}`, {
+        method: "DELETE",
+      })
+      if (res.ok) {
+        setAnnotations(prev => {
+          const next = { ...prev }
+          delete next[msgId]
+          return next
+        })
+        toast.success("Anotação removida")
+      }
+    } catch {
+      toast.error("Erro ao remover anotação")
+    }
+  }
+
   const handleSelectConversation = (convId: string) => {
     setActiveConvId(convId)
     setMessageText("")
     setAiSuggestion("")
+    setAnnotations({})
     fetchMessages(convId)
+    fetchAnnotations(convId)
     setConversations((prev) =>
       prev.map((c) => c.id === convId ? { ...c, unreadCount: "0" } : c)
     )
@@ -461,6 +627,18 @@ function InboxContent() {
       } else {
         // Substituir mensagem temporária pela real
         setMessages((prev) => prev.map((m) => m.id === tempMsg.id ? data.message : m))
+        // Mover conversa pro topo da lista
+        setConversations((prev) => {
+          const idx = prev.findIndex((c) => c.id === activeConvId)
+          if (idx === -1) return prev
+          const updated = [...prev]
+          updated[idx] = {
+            ...updated[idx],
+            lastMessagePreview: data.message.content,
+            lastMessageAt: data.message.sentAt,
+          }
+          return [updated[idx], ...updated.filter((_, i) => i !== idx)]
+        })
       }
     } catch {
       toast.error("Erro ao enviar mensagem")
@@ -483,29 +661,12 @@ function InboxContent() {
     }, 1200)
   }
 
-  const handleTestWpp = async () => {
-    setTestingWpp(true)
-    try {
-      const res = await fetch("/api/integrations/whatsapp/test", { method: "POST" })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || "Erro ao testar conexão")
-        return
-      }
-      toast.success("Mensagem de teste enviada! Verifique seu WhatsApp.")
-      // Recarregar conversas para mostrar a nova conversa de teste
-      fetchConversations()
-    } catch {
-      toast.error("Erro ao testar conexão WhatsApp")
-    } finally {
-      setTestingWpp(false)
-    }
-  }
+
 
   const activeConv = conversations.find((c) => c.id === activeConvId)
   const activeIntegration = integrations.find((i) => i.id === activeConv?.integrationId)
 
-  const wppIntegration = integrations.find((i) => i.channel === "whatsapp")
+
   const hasActiveIntegrations = integrations.some((i) => i.status === "active")
 
   const filteredConvs = conversations.filter((conv) => {
@@ -654,7 +815,7 @@ function InboxContent() {
       </div>
 
       {/* Painel direito — chat ativo */}
-      <div className="hidden lg:flex flex-1 flex-col min-w-0 min-h-0 bg-background h-full bento-item relative">
+      <div className="hidden lg:flex flex-1 flex-col min-w-0 min-h-0 bg-background h-full bento-item relative overflow-hidden">
 
         {!activeConvId ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
@@ -684,8 +845,8 @@ function InboxContent() {
                     <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ring-1 uppercase tracking-wider ${CHANNEL_COLOR[activeConv?.channel || "whatsapp"]}`}>
                       {activeConv?.channel === "whatsapp" ? "WPP" : activeConv?.channel?.toUpperCase()}
                     </span>
-                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ring-1 uppercase tracking-wider ml-1 ${activeConv?.isClient || activeConv?.contactName ? "bg-green-500/10 text-green-500 ring-green-500/20" : "bg-blue-500/10 text-blue-500 ring-blue-500/20"}`}>
-                      {activeConv?.isClient || activeConv?.contactName ? "CLIENTE" : "LEAD"}
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ring-1 uppercase tracking-wider ml-1 ${activeConv?.isClient ? "bg-green-500/10 text-green-500 ring-green-500/20" : "bg-blue-500/10 text-blue-500 ring-blue-500/20"}`}>
+                      {activeConv?.isClient ? "CLIENTE" : "LEAD"}
                     </span>
                   </div>
                   <p className="text-[10px] text-primary font-medium tracking-wide uppercase mt-0.5">
@@ -711,7 +872,7 @@ function InboxContent() {
                   className="h-8 rounded-xl text-[10px] font-bold uppercase tracking-wider gap-1 px-3 text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10 transition-colors"
                   title="Marcar como número sem valor / ignorar"
                 >
-                  <HugeiconsIcon icon={BlocksIcon} /> Ignorar
+                  <HugeiconsIcon icon={BlockedIcon} /> Ignorar
                 </Button>
 
                 <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 rounded-xl border border-border/40">
@@ -724,6 +885,16 @@ function InboxContent() {
                     Autopiloto IA
                   </Label>
                 </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAnnotationsPanel(!showAnnotationsPanel)}
+                  className={`h-8 rounded-xl text-[10px] font-bold uppercase tracking-wider gap-1.5 px-3 transition-colors ${showAnnotationsPanel ? "bg-primary/10 text-primary border-primary/30" : "text-muted-foreground border-border/40 hover:bg-muted/30"}`}
+                >
+                  <HugeiconsIcon icon={SparklesIcon} className="size-3" />
+                  Anotações ({Object.keys(annotations).length})
+                </Button>
               </div>
             </div>
 
@@ -737,7 +908,7 @@ function InboxContent() {
                 ) : (() => {
                   // Renderizar com separadores de data
                   let lastDate = ""
-                  return messages.map((msg, index) => {
+                  return messages.map((msg) => {
                     const isOut = msg.direction === "outbound"
                     const msgDate = new Date(msg.sentAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
                     const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -771,25 +942,218 @@ function InboxContent() {
                             </span>
                           </div>
                         )}
-                        <div className={`flex ${isOut ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                          <div className={`rounded-2xl px-4 py-2.5 max-w-[75%] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] border ${isOut ? "bg-primary text-primary-foreground border-primary/20 rounded-tr-sm" : "bg-card text-foreground border-border/50 rounded-tl-sm"}`}>
-                            {msg.mediaUrl && (
-                              <div className="mb-2 max-w-full overflow-hidden rounded-xl">
+                        <div data-msg-id={msg.id} className={`flex ${isOut ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300 group/msg`}>
+                          <div className={`relative rounded-2xl px-4 py-2.5 max-w-[75%] shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] border ${isOut ? "bg-primary text-primary-foreground border-primary/20 rounded-tr-sm" : "bg-card text-foreground border-border/50 rounded-tl-sm"}`}>
+                            {/* Revoked / deleted message */}
+                            {msg.mediaType === "revoked" && (
+                              <div className={`flex items-center gap-2 mb-2 px-3 py-2 rounded-xl ${isOut ? "bg-white/10" : "bg-black/10"}`}>
+                                <svg className="size-4 opacity-50 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                </svg>
+                                <span className="text-[11px] italic opacity-50">Mensagem apagada</span>
+                              </div>
+                            )}
+
+                            {/* Interactive List Message (WhatsApp button/list responses) */}
+                            {msg.mediaType === "interactive" && (
+                              <div className={`mb-2 rounded-xl overflow-hidden border ${isOut ? "border-white/10" : "border-border/30"}`}>
+                                <div className={`px-3.5 py-2.5 ${isOut ? "bg-white/10" : "bg-primary/5"}`}>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <div className={`size-5 rounded-md flex items-center justify-center ${isOut ? "bg-white/20" : "bg-primary/15"}`}>
+                                      <svg className="size-3" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" /></svg>
+                                    </div>
+                                    <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">Mensagem Interativa</span>
+                                  </div>
+                                  <p className="text-[11px] font-semibold leading-snug">{msg.content}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Poll / Enquete message */}
+                            {(msg.mediaType === "pollCreationMessage" || msg.mediaType === "poll_update" || msg.mediaType === "poll_creation_answer") && (
+                              <div className={`mb-2 rounded-xl overflow-hidden border ${isOut ? "border-white/10" : "border-border/30"}`}>
+                                <div className={`px-3.5 py-2.5 ${isOut ? "bg-white/10" : "bg-primary/5"}`}>
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <div className={`size-5 rounded-md flex items-center justify-center ${isOut ? "bg-white/20" : "bg-primary/15"}`}>
+                                      <svg className="size-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3v18h18V3H3zm8 14H7v-2h4v2zm0-4H7v-2h4v2zm0-4H7V7h4v2zm6 8h-4v-2h4v2zm0-4h-4v-2h4v2zm0-4h-4V7h4v2z" /></svg>
+                                    </div>
+                                    <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">Enquete</span>
+                                  </div>
+                                  <p className="text-[11px] font-semibold leading-snug">{msg.content}</p>
+                                </div>
+                                {msg.mediaType === "poll_creation_answer" && (
+                                  <div className={`px-3.5 py-2 border-t ${isOut ? "border-white/10" : "border-border/30"}`}>
+                                    <div className="flex items-center gap-1.5">
+                                      <svg className="size-3 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" /></svg>
+                                      <span className="text-[11px] font-medium">Resposta enviada</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Location message */}
+                            {msg.mediaType === "location" && (
+                              <div className={`mb-2 rounded-xl overflow-hidden border ${isOut ? "border-white/10" : "border-border/30"}`}>
+                                <div className={`flex items-center gap-3 px-3.5 py-3 ${isOut ? "bg-white/10" : "bg-primary/5"}`}>
+                                  <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${isOut ? "bg-white/20" : "bg-red-500/10"}`}>
+                                    <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                                    </svg>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] font-semibold">Localização</p>
+                                    <p className="text-[10px] opacity-60 mt-0.5 truncate">{msg.content || "Coordenadas compartilhadas"}</p>
+                                  </div>
+                                  <a href={msg.content?.match(/https?:\/\/\S+/)?.[0] || `https://www.google.com/maps/search/?api=1`} target="_blank" rel="noopener noreferrer" className={`shrink-0 size-8 rounded-lg flex items-center justify-center transition-colors ${isOut ? "bg-white/15 hover:bg-white/25" : "bg-primary/10 hover:bg-primary/20"}`}>
+                                    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                                    </svg>
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Live Location */}
+                            {msg.mediaType === "liveLocation" && (
+                              <div className={`mb-2 rounded-xl overflow-hidden border ${isOut ? "border-white/10" : "border-border/30"}`}>
+                                <div className={`flex items-center gap-3 px-3.5 py-3 ${isOut ? "bg-white/10" : "bg-green-500/5"}`}>
+                                  <div className="relative shrink-0">
+                                    <div className="size-10 rounded-xl bg-green-500/15 flex items-center justify-center">
+                                      <svg className="size-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                                      </svg>
+                                    </div>
+                                    <div className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-green-500 border-2 border-card animate-pulse" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] font-semibold text-green-500">Localização ao vivo</p>
+                                    <p className="text-[10px] opacity-60 mt-0.5">Atualizando em tempo real</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Contact message */}
+                            {msg.mediaType === "contact" && (() => {
+                              // Parse the vCard (FN = name, TEL = phone) so we render clean fields
+                              // instead of dumping the raw BEGIN:VCARD / VERSION / TEL;... blob.
+                              const raw = msg.content || ""
+                              const contactName = raw.match(/FN:([^\n\r]*)/)?.[1]?.trim() ?? ""
+                              const contactPhone = raw.match(/TEL[^:\n\r]*:([^\n\r]*)/)?.[1]?.trim() ?? ""
+                              const fallback = raw
+                                .split(/\r?\n/)
+                                .map(l => l.replace(/^(?:BEGIN|END):VCARD$/i, "").replace(/^VERSION:\d.*$/i, "").replace(/^[A-Z]+(?:;[^:]*)?:/i, "").trim())
+                                .filter(Boolean)
+                                .join(" · ")
+                              const displayName = contactName || contactPhone || fallback || "Vcard"
+                              const showPhone = Boolean(contactName && contactPhone)
+                              const copyValue = contactPhone || raw
+                              return (
+                                <div className={`mb-2 rounded-xl overflow-hidden border max-w-[260px] ${isOut ? "border-white/10" : "border-border/30"}`}>
+                                  <div className={`flex items-center gap-3 px-3.5 py-3 ${isOut ? "bg-white/10" : "bg-primary/5"}`}>
+                                    <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${isOut ? "bg-white/20" : "bg-primary/15"}`}>
+                                      <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                                      </svg>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[11px] font-semibold">Contato compartilhado</p>
+                                      <p className="text-[10px] opacity-60 mt-0.5 truncate">{displayName}</p>
+                                      {showPhone && (
+                                        <p className="text-[10px] opacity-50 mt-0.5 truncate">{contactPhone}</p>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          await navigator.clipboard.writeText(copyValue)
+                                          toast.success(contactPhone ? `Telefone copiado: ${contactPhone}` : "Contato copiado para a área de transferência")
+                                        } catch {
+                                          toast.error("Não foi possível copiar o contato")
+                                        }
+                                      }}
+                                      className={`shrink-0 size-8 rounded-lg flex items-center justify-center transition-colors ${isOut ? "bg-white/15 hover:bg-white/25" : "bg-primary/10 hover:bg-primary/20"}`}
+                                      title="Copiar telefone do contato"
+                                    >
+                                      <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            })()}
+
+                            {/* Sticker */}
+                            {msg.mediaType === "sticker" && msg.mediaUrl && (
+                              <div className="mb-2 flex justify-center">
+                                <img src={msg.mediaUrl} alt="Figurinha" className="max-h-40 max-w-40 object-contain" loading="lazy" />
+                              </div>
+                            )}
+
+                            {/* Standard media (image, audio, video, document) */}
+                            {msg.mediaUrl && !(["revoked", "pollCreationMessage", "poll_update", "poll_creation_answer", "location", "liveLocation", "contact", "sticker", "interactive", "list_response", "buttons_response"].includes(msg.mediaType || "")) && (
+                              <div className="mb-2 max-w-full overflow-hidden">
                                 {msg.mediaType === "image" ? (
-                                  <img src={msg.mediaUrl} alt="Anexo" className="max-h-64 w-full object-cover rounded-xl border border-white/10" />
+                                  <button type="button" onClick={() => setLightboxImage(msg.mediaUrl ?? null)} className="block group/img w-full text-left cursor-pointer">
+                                    <img
+                                      src={msg.mediaUrl}
+                                      alt="Imagem"
+                                      className="max-h-72 w-full object-cover rounded-xl border border-white/10 transition-transform duration-300 group-hover/img:scale-[1.02]"
+                                      loading="lazy"
+                                    />
+                                    <div className="flex items-center gap-1.5 mt-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity duration-200">
+                                      <svg className="size-3 text-current opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                                      </svg>
+                                      <span className="text-[9px] opacity-60">Clique para ampliar</span>
+                                    </div>
+                                  </button>
                                 ) : msg.mediaType === "audio" || msg.mediaType === "voice" || msg.mediaType === "ptt" ? (
-                                  <audio src={msg.mediaUrl} controls className="w-full max-w-[240px] my-1" />
+                                  <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl ${isOut ? "bg-white/10" : "bg-black/10"}`}>
+                                    <div className={`size-8 rounded-full flex items-center justify-center shrink-0 ${isOut ? "bg-white/20" : "bg-primary/20"}`}>
+                                      <svg className="size-4" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M12 3a1 1 0 0 0-1 1v8a1 1 0 0 0 2 0V4a1 1 0 0 0-1-1zM6.5 8A1.5 1.5 0 0 0 5 9.5v3a1.5 1.5 0 0 0 3 0v-3A1.5 1.5 0 0 0 6.5 8zm11 0A1.5 1.5 0 0 0 16 9.5v3a1.5 1.5 0 0 0 3 0v-3A1.5 1.5 0 0 0 17.5 8zM12 20.5a1 1 0 0 0 1-1v-2a1 1 0 0 0-2 0v2a1 1 0 0 0 1 1z" />
+                                      </svg>
+                                    </div>
+                                    <audio src={msg.mediaUrl} controls className="flex-1 h-8 min-w-0 [&::-webkit-media-controls-panel]:bg-transparent [&::-webkit-media-controls-play-button]:size-4 [&::-webkit-media-controls-play-button]:mr-1.5 [&::-webkit-media-controls-current-time-display]:text-[10px] [&::-webkit-media-controls-time-remaining-display]:text-[10px] [&::-webkit-media-controls-volume-slider]:hidden [&::-webkit-media-controls-mute-button]:hidden" />
+                                  </div>
                                 ) : msg.mediaType === "video" ? (
-                                  <video src={msg.mediaUrl} controls className="max-h-64 w-full rounded-xl" />
+                                  <div className="rounded-xl overflow-hidden border border-white/10">
+                                    <video
+                                      src={msg.mediaUrl}
+                                      controls
+                                      preload="metadata"
+                                      className="max-h-72 w-full object-cover"
+                                    />
+                                  </div>
                                 ) : (
-                                  <a href={msg.mediaUrl} download className="flex items-center gap-2 p-2.5 bg-black/20 rounded-xl text-xs underline">
-                                    📎 Baixar Anexo / Documento
+                                  <a
+                                    href={msg.mediaUrl}
+                                    download
+                                    className={`flex items-center gap-3 p-3 rounded-xl transition-colors duration-200 ${isOut ? "bg-white/10 hover:bg-white/15" : "bg-black/10 hover:bg-black/15"}`}
+                                  >
+                                    <div className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${isOut ? "bg-white/20" : "bg-primary/20"}`}>
+                                      <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                      </svg>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[11px] font-medium truncate">Documento</p>
+                                      <p className="text-[9px] opacity-60 mt-0.5">Toque para baixar</p>
+                                    </div>
+                                    <svg className="size-4 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                    </svg>
                                   </a>
                                 )}
                               </div>
                             )}
                             {msg.content && !(msg.mediaUrl && ["📷 Imagem", "🎤 Áudio", "🎥 Vídeo", "📄 Documento"].includes(msg.content)) && (
-                              <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap">{formatWppText(msg.content)}</p>
                             )}
                             <span className={`text-[9px] mt-1 block text-right font-medium flex items-center justify-end gap-1 ${isOut ? statusColor : "opacity-60"}`}>
                               {new Date(msg.sentAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
@@ -797,6 +1161,47 @@ function InboxContent() {
                                 <span className={`text-[10px] leading-none ${msg.status === "read" ? "text-blue-400" : ""}`}>{statusIcon}</span>
                               )}
                             </span>
+
+                            {/* Anotação da IA */}
+                            {annotations[msg.id] && (
+                              <div className={`mt-2 pt-2 border-t ${isOut ? "border-white/15" : "border-border/30"}`}>
+                                <div className="flex items-start gap-1.5">
+                                  <HugeiconsIcon icon={SparklesIcon} className="size-3 text-primary mt-0.5 shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-semibold text-primary leading-snug">{annotations[msg.id].summary}</p>
+                                    <p className="text-[9px] text-muted-foreground/70 mt-0.5 leading-relaxed">{annotations[msg.id].explanation}</p>
+                                  </div>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteAnnotation(annotations[msg.id].id, msg.id) }}
+                                    className="shrink-0 size-4 rounded flex items-center justify-center opacity-40 hover:opacity-100 hover:text-destructive transition-all"
+                                    title="Remover anotação"
+                                  >
+                                    <svg className="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Botão de anotação (hover) */}
+                            {!annotations[msg.id] && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleAnnotateMessage(msg) }}
+                                disabled={annotatingMsgId === msg.id}
+                                className="absolute -top-2 -left-2 size-6 rounded-full bg-primary/90 text-primary-foreground flex items-center justify-center opacity-0 group-hover/msg:opacity-100 transition-all duration-200 hover:scale-110 shadow-lg disabled:opacity-50"
+                                title="Criar anotação com IA"
+                              >
+                                {annotatingMsgId === msg.id ? (
+                                  <svg className="animate-spin size-3" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                ) : (
+                                  <HugeiconsIcon icon={SparklesIcon} className="size-3" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </React.Fragment>
@@ -841,7 +1246,7 @@ function InboxContent() {
                   </span>
                 )}
               </div>
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-center min-w-0">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -862,18 +1267,30 @@ function InboxContent() {
                 >
                   📎
                 </Button>
-                <QuickChatActions 
-                  isClient={Boolean(activeConv?.isClient || activeConv?.contactName)}
-                  onSelectAction={(text) => setMessageText(text)}
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setShowInteractiveComposer(true)}
                   disabled={sending}
-                />
+                  className="h-10 w-10 shrink-0 rounded-xl border-border/40 hover:bg-muted/30 p-0 flex items-center justify-center text-emerald-500 hover:text-emerald-600 transition-colors"
+                  title="Enviar mensagem interativa (lista de opções)"
+                >
+                  <svg className="size-4" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z" /></svg>
+                </Button>
+                <div className="shrink-0">
+                  <QuickChatActions
+                    isClient={Boolean(activeConv?.isClient)}
+                    onSelectAction={(actionId) => setActiveActionModal(actionId)}
+                    disabled={sending}
+                  />
+                </div>
                 <input
                   type="text"
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
-                  placeholder="Digite sua mensagem ou legenda..."
-                  className="flex-1 h-10 px-3.5 bg-muted/30 border border-border/40 rounded-xl text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all duration-300"
+                  placeholder="Digite sua mensagem..."
+                  className="flex-1 min-w-0 h-10 px-3.5 bg-muted/30 border border-border/40 rounded-xl text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all duration-300"
                   disabled={sending}
                 />
                 <Button onClick={handleSendMessage} disabled={sending || (!messageText.trim() && !attachmentFile)}
@@ -883,6 +1300,84 @@ function InboxContent() {
               </div>
             </div>
           </>
+        )}
+
+        {/* Painel de Anotações */}
+        {showAnnotationsPanel && activeConvId && (
+          <div className="absolute inset-0 z-10 flex flex-col bg-background border-l border-border/40 animate-in slide-in-from-right duration-300">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+              <div className="flex items-center gap-2">
+                <HugeiconsIcon icon={SparklesIcon} className="size-4 text-primary" />
+                <div>
+                  <h3 className="text-xs font-heading font-semibold">Anotações</h3>
+                  <p className="text-[9px] text-muted-foreground">{Object.keys(annotations).length} anotação(ões)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAnnotationsPanel(false)}
+                className="size-7 rounded-lg flex items-center justify-center hover:bg-muted/30 transition-colors text-muted-foreground"
+              >
+                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="p-3 space-y-2">
+                {Object.keys(annotations).length === 0 ? (
+                  <div className="text-center py-12 px-4">
+                    <HugeiconsIcon icon={SparklesIcon} className="size-8 text-muted-foreground/20 mx-auto mb-3" strokeWidth={1} />
+                    <p className="text-xs text-muted-foreground">Nenhuma anotação ainda</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-1">Passe o mouse sobre uma mensagem e clique no ícone de sparkle para criar uma anotação</p>
+                  </div>
+                ) : (
+                  Object.entries(annotations).map(([msgId, ann]) => {
+                    const tagColors: Record<string, string> = {
+                      important: "bg-primary/10 text-primary ring-primary/20",
+                      action_required: "bg-amber-500/10 text-amber-500 ring-amber-500/20",
+                      decision: "bg-blue-500/10 text-blue-500 ring-blue-500/20",
+                      info: "bg-muted text-muted-foreground ring-border/30",
+                    }
+                    const tagLabels: Record<string, string> = {
+                      important: "Importante",
+                      action_required: "Ação Necessária",
+                      decision: "Decisão",
+                      info: "Info",
+                    }
+                    return (
+                      <div
+                        key={msgId}
+                        className="p-3 rounded-xl border border-border/40 bg-card/50 hover:bg-card transition-colors cursor-pointer group/ann"
+                        onClick={() => {
+                          const el = document.querySelector(`[data-msg-id="${msgId}"]`)
+                          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <span className={`text-[8px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full ring-1 ${tagColors[ann.tag] || tagColors.info}`}>
+                            {tagLabels[ann.tag] || ann.tag}
+                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteAnnotation(ann.id, msgId) }}
+                            className="size-5 rounded flex items-center justify-center opacity-0 group-hover/ann:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all text-muted-foreground"
+                            title="Remover anotação"
+                          >
+                            <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p className="text-[11px] font-semibold text-foreground leading-snug">{ann.summary}</p>
+                        <p className="text-[10px] text-muted-foreground/70 mt-1 leading-relaxed">{ann.explanation}</p>
+                        <p className="text-[9px] text-muted-foreground/40 mt-2 truncate italic">Mensagem: "{ann.messageContent?.substring(0, 60)}..."</p>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         )}
       </div>
 
@@ -906,6 +1401,191 @@ function InboxContent() {
         cancelText="Cancelar"
         onConfirm={executeDeleteConv}
         variant="destructive"
+      />
+
+      <QuickActionModals
+        activeActionId={activeActionModal}
+        onClose={() => setActiveActionModal(null)}
+        conversation={activeConv}
+        onSuccess={async (text) => {
+          // Salvar a mensagem no banco de dados automaticamente
+          if (!activeConvId) return
+          
+          const tempMsg: Message = {
+            id: `temp-${Date.now()}`,
+            direction: "outbound",
+            content: text,
+            sentAt: new Date().toISOString(),
+            status: "sending",
+          }
+
+          // Optimistic update
+          setMessages((prev) => [...prev, tempMsg])
+          
+          try {
+            const res = await fetch(`/api/conversations/${activeConvId}/messages`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text }),
+            })
+            const data = await res.json()
+
+            if (res.ok) {
+              // Substituir mensagem temporária pela real
+              setMessages((prev) => prev.map((m) => m.id === tempMsg.id ? data.message : m))
+              // Mover conversa pro topo da lista
+              setConversations((prev) => {
+                const idx = prev.findIndex((c) => c.id === activeConvId)
+                if (idx === -1) return prev
+                const updated = [...prev]
+                updated[idx] = {
+                  ...updated[idx],
+                  lastMessagePreview: data.message.content,
+                  lastMessageAt: data.message.sentAt,
+                }
+                return [updated[idx], ...updated.filter((_, i) => i !== idx)]
+              })
+              toast.success("Mensagem enviada e salva no histórico!")
+            } else {
+              toast.error(data.error || "Erro ao salvar mensagem")
+              setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id))
+            }
+          } catch {
+            toast.error("Erro ao salvar mensagem")
+            setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id))
+          }
+          
+          fetchConversations()
+        }}
+      />
+
+      {/* Image Lightbox */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setLightboxImage(null)}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 z-[101] size-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center transition-colors"
+          >
+            <svg className="size-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Image */}
+          <img
+            src={lightboxImage}
+            alt="Imagem ampliada"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Download button */}
+          <a
+            href={lightboxImage}
+            download
+            className="absolute bottom-4 right-4 z-[101] size-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <svg className="size-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+          </a>
+        </div>
+      )}
+
+      <InteractiveMessageComposer
+        open={showInteractiveComposer}
+        onOpenChange={setShowInteractiveComposer}
+        sending={sendingInteractive}
+        onSend={async (data) => {
+          if (!activeConvId || !activeConv?.contactIdentifier) {
+            toast.error("Selecione uma conversa para enviar mensagem interativa")
+            return
+          }
+          setSendingInteractive(true)
+          try {
+            // Filter out sections with no usable rows
+            const filteredSections = data.sections
+              .map((s) => ({
+                title: s.title,
+                rows: s.rows
+                  .filter((r) => r.title.trim())
+                  .map((r) => ({
+                    id: r.id || String(Date.now()),
+                    title: r.title.trim(),
+                    description: r.description?.trim() || undefined,
+                  })),
+              }))
+              .filter((s) => s.rows.length > 0)
+
+            if (filteredSections.length === 0) {
+              toast.error("Adicione pelo menos uma opção com título")
+              setSendingInteractive(false)
+              return
+            }
+
+            const res = await fetch("/api/inbox/quick-actions/send-interactive", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contactPhone: activeConv.contactIdentifier,
+                messageBody: data.messageBody,
+                buttonText: data.buttonText,
+                sections: filteredSections,
+              }),
+            })
+            if (res.ok) {
+              // Save the interactive message text to conversation history
+              const previewSections = data.sections
+                .map((s) => {
+                  const rows = s.rows.filter((r) => r.title.trim())
+                  if (rows.length === 0) return null
+                  const header = s.title.trim() ? `${s.title.trim()}\n` : ""
+                  return header + rows.map((r) => `• ${r.title.trim()}`).join("\n")
+                })
+                .filter(Boolean)
+                .join("\n\n")
+              const fullText = [data.messageBody, previewSections, `[${data.buttonText}]`]
+                .filter(Boolean)
+                .join("\n\n")
+
+              const tempMsg: Message = {
+                id: `temp-${Date.now()}`,
+                direction: "outbound",
+                content: fullText,
+                mediaType: "interactive",
+                sentAt: new Date().toISOString(),
+                status: "sending",
+              }
+              setMessages((prev) => [...prev, tempMsg])
+
+              const msgRes = await fetch(`/api/conversations/${activeConvId}/messages`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: fullText, mediaType: "interactive" }),
+              })
+              const msgData = await msgRes.json()
+              if (msgRes.ok) {
+                setMessages((prev) => prev.map((m) => m.id === tempMsg.id ? msgData.message : m))
+                toast.success("Mensagem interativa enviada!")
+              } else {
+                setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id))
+                toast.warning("Enviada no WhatsApp, mas houve erro ao salvar no histórico")
+              }
+            } else {
+              const err = await res.json()
+              toast.error(err.error || "Erro ao enviar mensagem interativa")
+            }
+          } catch {
+            toast.error("Erro ao enviar mensagem interativa")
+          } finally {
+            setSendingInteractive(false)
+          }
+        }}
       />
 
       <style dangerouslySetInnerHTML={{ __html: `.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}` }} />

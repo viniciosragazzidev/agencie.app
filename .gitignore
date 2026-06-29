@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# openwa backup (Windows reserved name conflict)
+.openwa-bak
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

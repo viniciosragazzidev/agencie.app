@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,20 @@ export default function PortalLoginPage() {
   const [email, setEmail] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [agencyName, setAgencyName] = useState("Área do Cliente")
+  const [agencyLogo, setAgencyLogo] = useState<string | null>(null)
+  const [primaryColor, setPrimaryColor] = useState("#111827")
+
+  useEffect(() => {
+    fetch(`/api/portal/${agency}/auth`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.agencyName) setAgencyName(data.agencyName)
+        if (data.agencyLogo) setAgencyLogo(data.agencyLogo)
+        if (data.primaryColor) setPrimaryColor(data.primaryColor)
+      })
+      .catch(() => {})
+  }, [agency])
 
   const formatDocument = (value: string) => {
     const digits = value.replace(/\D/g, "")
@@ -72,10 +86,21 @@ export default function PortalLoginPage() {
       <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-md rounded-[2rem] shadow-2xl">
         <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-8">
           <div className="flex flex-col items-center mb-8">
-            <div className="size-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
-              <HugeiconsIcon icon={Building01Icon} className="size-7 text-primary" />
-            </div>
-            <h1 className="text-lg font-semibold text-foreground font-display">Área do Cliente</h1>
+            {agencyLogo ? (
+              <img
+                src={agencyLogo}
+                alt={agencyName}
+                className="size-14 rounded-2xl object-contain mb-4"
+              />
+            ) : (
+              <div
+                className="size-14 rounded-2xl flex items-center justify-center mb-4"
+                style={{ backgroundColor: `${primaryColor}15`, border: `1px solid ${primaryColor}30` }}
+              >
+                <HugeiconsIcon icon={Building01Icon} className="size-7" style={{ color: primaryColor }} />
+              </div>
+            )}
+            <h1 className="text-lg font-semibold text-foreground font-display">{agencyName}</h1>
             <p className="text-[10px] text-muted-foreground mt-1">Acesse o painel da sua conta</p>
           </div>
 

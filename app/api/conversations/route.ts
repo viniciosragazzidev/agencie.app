@@ -2,9 +2,18 @@ import { NextResponse } from "next/server"
 import crypto from "crypto"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { conversation, channelIntegration } from "@/lib/db/schema"
+import { conversation, channelIntegration, client, lead } from "@/lib/db/schema"
 import { eq, and, desc } from "drizzle-orm"
 import { getContactProfilePicture } from "@/lib/integrations/openwa"
+
+function getPhoneDigits(phone: string | null | undefined): string {
+  if (!phone) return ""
+  const digits = phone.replace(/\D/g, "")
+  if (digits.startsWith("55") && digits.length >= 12) {
+    return digits.slice(2)
+  }
+  return digits
+}
 
 /** GET /api/conversations — lista conversas do usuário ordenadas pela mais recente */
 export async function GET(req: Request) {
@@ -17,7 +26,48 @@ export async function GET(req: Request) {
     .where(and(eq(conversation.userId, session.user.id), eq(conversation.isIgnored, false)))
     .orderBy(desc(conversation.lastMessageAt))
 
-  return NextResponse.json({ conversations })
+  const clients = await db
+    .select()
+    .from(client)
+    .where(eq(client.userId, session.user.id))
+
+  const leads = await db
+    .select()
+    .from(lead)
+    .where(eq(lead.userId, session.user.id))
+
+  const enrichedConversations = conversations.map((conv) => {
+    const convPhone = getPhoneDigits(conv.contactIdentifier)
+
+    // Match client by phone first
+    let matchedClient = convPhone
+      ? clients.find((c) => getPhoneDigits(c.contactPhone) === convPhone)
+      : null
+
+    // Fallback to matching by name (contactName matching client contactName or client company name)
+    if (!matchedClient && conv.contactName) {
+      matchedClient = clients.find(
+        (c) =>
+          c.contactName?.toLowerCase() === conv.contactName?.toLowerCase() ||
+          c.name.toLowerCase() === conv.contactName?.toLowerCase()
+      ) || null
+    }
+
+    // Match lead by name
+    const matchedLead = conv.contactName
+      ? leads.find((l) => l.name.toLowerCase() === conv.contactName?.toLowerCase())
+      : null
+
+    return {
+      ...conv,
+      isClient: !!matchedClient,
+      clientId: matchedClient ? matchedClient.id : null,
+      clientName: matchedClient ? matchedClient.name : null,
+      leadId: matchedLead ? matchedLead.id : null,
+    }
+  })
+
+  return NextResponse.json({ conversations: enrichedConversations })
 }
 
 /** POST /api/conversations — cria uma conversa sob demanda (ex: "Abordar via Chat") */

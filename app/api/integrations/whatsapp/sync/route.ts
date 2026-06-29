@@ -23,6 +23,8 @@ function getMessagePreviewText(body: string, type: string): string {
   if (type === "sticker") return "💟 Figurinha"
   if (type === "location") return "📍 Localização"
   if (type === "contact") return "👤 Contato"
+  if (type === "list_response") return "📋 Opção selecionada"
+  if (type === "buttons_response") return "🔘 Resposta interativa"
   return "Mídia"
 }
 
@@ -125,23 +127,42 @@ export async function POST(req: Request) {
         } catch {}
 
         const contactName = (omsg.metadata?.notifyName as string) || externalChatId
-        const [newConv] = await db
-          .insert(conversation)
-          .values({
-            id: crypto.randomUUID(),
-            userId: session.user.id,
-            integrationId: integration.id,
-            channel: "whatsapp",
-            externalChatId,
-            contactIdentifier: externalChatId,
-            contactName,
-            contactAvatar,
-            lastMessageAt: new Date(omsg.timestamp * 1000),
-            lastMessagePreview: previewText.substring(0, 100),
-            unreadCount: "1",
-          })
-          .returning()
-        conv = newConv
+        try {
+          const [newConv] = await db
+            .insert(conversation)
+            .values({
+              id: crypto.randomUUID(),
+              userId: session.user.id,
+              integrationId: integration.id,
+              channel: "whatsapp",
+              externalChatId,
+              contactIdentifier: externalChatId,
+              contactName,
+              contactAvatar,
+              lastMessageAt: new Date(omsg.timestamp * 1000),
+              lastMessagePreview: previewText.substring(0, 100),
+              unreadCount: "1",
+            })
+            .returning()
+          conv = newConv
+        } catch (insertErr: any) {
+          // Unique constraint violation (23505) = race condition
+          if (insertErr?.code === "23505") {
+            const [existing] = await db
+              .select()
+              .from(conversation)
+              .where(
+                and(
+                  eq(conversation.integrationId, integration.id),
+                  eq(conversation.externalChatId, externalChatId)
+                )
+              )
+            conv = existing || null
+          } else {
+            console.error("[Sync] Unexpected DB error creating conversation:", insertErr)
+            continue
+          }
+        }
       } else {
         if (!conv.isIgnored) {
           await db
@@ -156,7 +177,7 @@ export async function POST(req: Request) {
         }
       }
 
-      // Deduplicação
+      // Deduplicação por conversationId
       const externalId = omsg.waMessageId || omsg.id
       if (externalId) {
         const [existing] = await db
@@ -167,6 +188,16 @@ export async function POST(req: Request) {
             eq(message.conversationId, conv.id)
           ))
         if (existing) continue
+        // Also check globally to catch duplicates across conversations
+        const [globalExisting] = await db
+          .select({ id: message.id })
+          .from(message)
+          .where(and(
+            eq(message.externalMessageId, externalId),
+            eq(message.userId, session.user.id)
+          ))
+          .limit(1)
+        if (globalExisting) continue
       }
 
       // Inserir mensagem

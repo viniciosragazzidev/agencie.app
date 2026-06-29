@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, index, uniqueIndex, jsonb, integer, real } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -14,6 +14,24 @@ export const user = pgTable("user", {
     .notNull(),
   username: text("username").unique(),
   displayUsername: text("display_username"),
+  onboardingCompleted: boolean("onboarding_completed").default(false).notNull(),
+  onboardingStep: integer("onboarding_step").default(0).notNull(),
+  setupProgress: jsonb("setup_progress").$type<{
+    agencyConfigured: boolean
+    firstClientCreated: boolean
+    firstServiceCreated: boolean
+    integrationConnected: boolean
+    contractGenerated: boolean
+  }>().default({
+    agencyConfigured: false,
+    firstClientCreated: false,
+    firstServiceCreated: false,
+    integrationConnected: false,
+    contractGenerated: false
+  }),
+  tutorialCompleted: boolean("tutorial_completed").default(false).notNull(),
+  lastLoginAt: timestamp("last_login_at"),
+  loginCount: integer("login_count").default(0).notNull(),
 });
 
 export const session = pgTable(
@@ -199,6 +217,7 @@ export const conversation = pgTable(
     index("conversation_userId_idx").on(t.userId),
     index("conversation_integrationId_idx").on(t.integrationId),
     index("conversation_lastMessageAt_idx").on(t.lastMessageAt),
+    uniqueIndex("conversation_integrationId_externalChatId_idx").on(t.integrationId, t.externalChatId),
   ]
 );
 
@@ -227,8 +246,33 @@ export const message = pgTable(
     index("message_conversationId_idx").on(t.conversationId),
     index("message_userId_idx").on(t.userId),
     index("message_sentAt_idx").on(t.sentAt),
+    index("message_externalMessageId_idx").on(t.externalMessageId),
   ]
 );
+
+// ============================================================
+// ANOTAÇÕES DE MENSAGEM (AI-powered)
+// ============================================================
+
+export const messageAnnotation = pgTable("message_annotation", {
+  id: text("id").primaryKey(),
+  messageId: text("message_id")
+    .notNull()
+    .references(() => message.id, { onDelete: "cascade" }),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => conversation.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  summary: text("summary").notNull(),
+  explanation: text("explanation").notNull(),
+  tag: text("tag", { enum: ["important", "action_required", "decision", "info"] }).default("important").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("message_annotation_messageId_idx").on(t.messageId),
+  index("message_annotation_conversationId_idx").on(t.conversationId),
+]);
 
 // ============================================================
 // PÓS-VENDA — 10 Funcionalidades Estratégicas
@@ -239,13 +283,20 @@ export const projectTask = pgTable("project_task", {
   clientId: text("client_id")
     .notNull()
     .references(() => client.id, { onDelete: "cascade" }),
+  projectId: text("project_id")
+    .references(() => project.id, { onDelete: "set null" }),
+  milestoneId: text("milestone_id")
+    .references(() => milestone.id, { onDelete: "set null" }),
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  assignedTo: text("assigned_to")
+    .references(() => teamMember.id, { onDelete: "set null" }),
   title: text("title").notNull(),
   description: text("description"),
   status: text("status", { enum: ["todo", "in_progress", "done"] }).default("todo").notNull(),
   position: integer("position").default(0).notNull(),
+  estimatedHours: integer("estimated_hours"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -254,6 +305,8 @@ export const projectTask = pgTable("project_task", {
 }, (t) => [
   index("project_task_clientId_idx").on(t.clientId),
   index("project_task_userId_idx").on(t.userId),
+  index("project_task_projectId_idx").on(t.projectId),
+  index("project_task_milestoneId_idx").on(t.milestoneId),
 ]);
 
 export const approval = pgTable("approval", {
@@ -349,6 +402,11 @@ export const onboardingTask = pgTable("onboarding_task", {
   isCompleted: boolean("is_completed").default(false).notNull(),
   completedAt: timestamp("completed_at"),
   position: integer("position").default(0).notNull(),
+  response: jsonb("response"),
+  responseType: text("response_type", {
+    enum: ["text", "textarea", "file", "select", "date", "boolean"]
+  }),
+  responseOptions: jsonb("response_options"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -400,6 +458,9 @@ export const clientScope = pgTable("client_scope", {
   usedQuota: integer("used_quota").default(0).notNull(),
   period: text("period", { enum: ["monthly", "quarterly", "one_time"] }).default("monthly").notNull(),
   resetDate: timestamp("reset_date"),
+  price: text("price").default("0").notNull(),
+  billing: text("billing", { enum: ["mensal", "anual", "unico"] }).default("mensal").notNull(),
+  status: text("status", { enum: ["active", "closed"] }).default("active").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -462,6 +523,311 @@ export const clientFinancialRecord = pgTable("client_financial_record", {
   index("client_financial_record_clientId_idx").on(t.clientId),
 ]);
 
+export const clientMeeting = pgTable("client_meeting", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => client.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  meetingDate: timestamp("meeting_date").notNull(),
+  platform: text("platform").default("Google Meet").notNull(),
+  meetingLink: text("meeting_link"),
+  status: text("status", { enum: ["pending", "confirmed", "declined"] }).default("pending").notNull(),
+  clientSuggestedDate: timestamp("client_suggested_date"),
+  clientComment: text("client_comment"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}, (t) => [
+  index("client_meeting_clientId_idx").on(t.clientId),
+]);
+
+export const clientContract = pgTable("client_contract", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => client.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  status: text("status", { enum: ["pending", "signed", "expired", "cancelled"] }).default("pending").notNull(),
+  signedAt: timestamp("signed_at"),
+  signerName: text("signer_name"),
+  signerIp: text("signer_ip"),
+  signerDocument: text("signer_document"),
+  contractType: text("contract_type").default("prestacao_servicos"),
+  validityDays: integer("validity_days").default(30),
+  projectId: text("project_id"),
+  totalValue: text("total_value"),
+  paymentConditions: text("payment_conditions"),
+  lateFee: text("late_fee"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}, (t) => [
+  index("client_contract_clientId_idx").on(t.clientId),
+]);
+
+export const clientBriefing = pgTable("client_briefing", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => client.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  projectName: text("project_name"),
+  businessGoal: text("business_goal"),
+  targetAudience: text("target_audience"),
+  targetAge: text("target_age"),
+  targetLocation: text("target_location"),
+  competitors: text("competitors"),
+  projectScope: text("project_scope"),
+  estimatedBudget: text("estimated_budget"),
+  desiredDeadline: text("desired_deadline"),
+  visualReferences: text("visual_references"),
+  additionalInfo: text("additional_info"),
+  status: text("status", { enum: ["draft", "submitted"] }).default("draft").notNull(),
+  submittedAt: timestamp("submitted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}, (t) => [
+  index("client_briefing_clientId_idx").on(t.clientId),
+]);
+
+export const clientPoll = pgTable("client_poll", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .references(() => client.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  messageId: text("message_id"),
+  externalMessageId: text("external_message_id"),
+  pollName: text("poll_name").notNull(),
+  type: text("type", { enum: ["meeting_confirmation", "material_approval", "nps", "lead_qualification", "payment_method"] }).notNull(),
+  referenceId: text("reference_id"),
+  options: jsonb("options").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("client_poll_externalMessageId_idx").on(t.externalMessageId),
+]);
+
+// ============================================================
+// GOOGLE CALENDAR — Credenciais OAuth2
+// ============================================================
+
+export const googleCalendarCredential = pgTable("google_calendar_credential", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  scope: text("scope"),
+  tokenType: text("token_type").default("Bearer").notNull(),
+  expiryDate: timestamp("expiry_date"),
+  calendarEmail: text("calendar_email"),
+  calendarName: text("calendar_name"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}, (t) => [
+  index("google_calendar_credential_userId_idx").on(t.userId),
+]);
+
+// ============================================================
+// AI SETTINGS — Configurações do motor de IA centralizado
+// ============================================================
+
+export const aiSettings = pgTable("ai_settings", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" })
+    .unique(),
+
+  // Provider configuration
+  primaryProvider: text("primary_provider", {
+    enum: ["groq", "openai", "anthropic", "google", "openrouter"],
+  }).default("groq").notNull(),
+  fallbackProvider: text("fallback_provider", {
+    enum: ["groq", "openai", "anthropic", "google", "openrouter"],
+  }),
+  modelPrimary: text("model_primary").default("llama-3.3-70b-versatile"),
+  modelFallback: text("model_fallback").default("gpt-4o-mini"),
+  temperature: real("temperature").default(0.7).notNull(),
+  maxTokens: integer("max_tokens").default(2048).notNull(),
+
+  // System prompt / persona (the "central brain instructions")
+  botName: text("bot_name").default("Agencie AI"),
+  systemPrompt: text("system_prompt").notNull().default(
+    "Voce e um assistente inteligente de uma agencia de marketing digital e tecnologia."
+  ),
+  persona: text("persona"),
+  guidelines: text("guidelines"),
+
+  // Feature flags
+  autoPilot: boolean("auto_pilot").default(true),
+  humanHandoff: boolean("human_handoff").default(true),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}, (t) => [
+  index("ai_settings_userId_idx").on(t.userId),
+]);
+
+// ============================================================
+// AGENCY SETTINGS — Configuracoes e branding da agencia
+// ============================================================
+
+export const agencySettings = pgTable("agency_settings", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" })
+    .unique(),
+  agencyName: text("agency_name"),
+  agencyLogo: text("agency_logo"),
+  agencySlogan: text("agency_slogan"),
+  primaryColor: text("primary_color").default("#111827"),
+  secondaryColor: text("secondary_color").default("#6b7280"),
+  accentColor: text("accent_color").default("#3b82f6"),
+  cnpj: text("cnpj"),
+  address: text("address"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  defaultContractTemplate: text("default_contract_template").default("prestacao_servicos"),
+  contractFooter: text("contract_footer"),
+  clauseBank: jsonb("clause_bank"),
+  portalWelcomeMessage: text("portal_welcome_message"),
+  portalPrimaryAction: text("portal_primary_action"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+// ============================================================
+// GESTAO DE PROJETOS — Projeto, Milestones, Equipe, Tempo
+// ============================================================
+
+export const project = pgTable("project", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => client.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status", {
+    enum: ["planning", "in_progress", "review", "done", "cancelled"]
+  }).default("planning").notNull(),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  budget: text("budget").default("0").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}, (t) => [
+  index("project_clientId_idx").on(t.clientId),
+  index("project_userId_idx").on(t.userId),
+  index("project_status_idx").on(t.status),
+]);
+
+export const milestone = pgTable("milestone", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => project.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status", {
+    enum: ["pending", "in_progress", "completed"]
+  }).default("pending").notNull(),
+  dueDate: timestamp("due_date"),
+  position: integer("position").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}, (t) => [
+  index("milestone_projectId_idx").on(t.projectId),
+]);
+
+export const teamMember = pgTable("team_member", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  email: text("email"),
+  role: text("role", {
+    enum: ["owner", "manager", "designer", "developer", "copywriter", "other"]
+  }).default("other").notNull(),
+  hourlyCost: text("hourly_cost").default("0").notNull(),
+  avatar: text("avatar"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+}, (t) => [
+  index("team_member_userId_idx").on(t.userId),
+]);
+
+export const timeEntry = pgTable("time_entry", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id")
+    .notNull()
+    .references(() => projectTask.id, { onDelete: "cascade" }),
+  teamMemberId: text("team_member_id")
+    .notNull()
+    .references(() => teamMember.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  duration: integer("duration"),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  index("time_entry_taskId_idx").on(t.taskId),
+  index("time_entry_teamMemberId_idx").on(t.teamMemberId),
+  index("time_entry_userId_idx").on(t.userId),
+]);
+
 // ============================================================
 // RELATIONS
 // ============================================================
@@ -475,6 +841,17 @@ export const userRelations = relations(user, ({ many }) => ({
   conversations: many(conversation),
   messages: many(message),
   leads: many(lead),
+  clientMeetings: many(clientMeeting),
+  clientContracts: many(clientContract),
+  clientBriefings: many(clientBriefing),
+  clientPolls: many(clientPoll),
+  projects: many(project),
+  milestones: many(milestone),
+  teamMembers: many(teamMember),
+  timeEntries: many(timeEntry),
+  googleCalendarCredentials: many(googleCalendarCredential),
+  agencySettings: many(agencySettings),
+  aiSettings: many(aiSettings),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -487,6 +864,7 @@ export const accountRelations = relations(account, ({ one }) => ({
 
 export const clientRelations = relations(client, ({ one, many }) => ({
   user: one(user, { fields: [client.userId], references: [user.id] }),
+  projects: many(project),
   projectTasks: many(projectTask),
   approvals: many(approval),
   interactions: many(clientInteraction),
@@ -498,6 +876,10 @@ export const clientRelations = relations(client, ({ one, many }) => ({
   scopes: many(clientScope),
   adSpendTrackers: many(adSpendTracker),
   financialRecords: many(clientFinancialRecord),
+  meetings: many(clientMeeting),
+  contracts: many(clientContract),
+  briefings: many(clientBriefing),
+  polls: many(clientPoll),
 }));
 
 export const serviceRelations = relations(service, ({ one }) => ({
@@ -516,14 +898,28 @@ export const conversationRelations = relations(conversation, ({ one, many }) => 
     references: [channelIntegration.id],
   }),
   messages: many(message),
+  annotations: many(messageAnnotation),
 }));
 
-export const messageRelations = relations(message, ({ one }) => ({
+export const messageRelations = relations(message, ({ one, many }) => ({
   conversation: one(conversation, {
     fields: [message.conversationId],
     references: [conversation.id],
   }),
   user: one(user, { fields: [message.userId], references: [user.id] }),
+  annotations: many(messageAnnotation),
+}));
+
+export const messageAnnotationRelations = relations(messageAnnotation, ({ one }) => ({
+  message: one(message, {
+    fields: [messageAnnotation.messageId],
+    references: [message.id],
+  }),
+  conversation: one(conversation, {
+    fields: [messageAnnotation.conversationId],
+    references: [conversation.id],
+  }),
+  user: one(user, { fields: [messageAnnotation.userId], references: [user.id] }),
 }));
 
 // ============================================================
@@ -532,7 +928,10 @@ export const messageRelations = relations(message, ({ one }) => ({
 
 export const projectTaskRelations = relations(projectTask, ({ one }) => ({
   client: one(client, { fields: [projectTask.clientId], references: [client.id] }),
+  project: one(project, { fields: [projectTask.projectId], references: [project.id] }),
+  milestone: one(milestone, { fields: [projectTask.milestoneId], references: [milestone.id] }),
   user: one(user, { fields: [projectTask.userId], references: [user.id] }),
+  assignee: one(teamMember, { fields: [projectTask.assignedTo], references: [teamMember.id] }),
 }));
 
 export const approvalRelations = relations(approval, ({ one }) => ({
@@ -585,4 +984,65 @@ export const leadRelations = relations(lead, ({ one }) => ({
 
 export const clientFinancialRecordRelations = relations(clientFinancialRecord, ({ one }) => ({
   client: one(client, { fields: [clientFinancialRecord.clientId], references: [client.id] }),
+}));
+
+export const clientMeetingRelations = relations(clientMeeting, ({ one }) => ({
+  client: one(client, { fields: [clientMeeting.clientId], references: [client.id] }),
+  user: one(user, { fields: [clientMeeting.userId], references: [user.id] }),
+}));
+
+export const clientContractRelations = relations(clientContract, ({ one }) => ({
+  client: one(client, { fields: [clientContract.clientId], references: [client.id] }),
+  user: one(user, { fields: [clientContract.userId], references: [user.id] }),
+}));
+
+export const clientBriefingRelations = relations(clientBriefing, ({ one }) => ({
+  client: one(client, { fields: [clientBriefing.clientId], references: [client.id] }),
+  user: one(user, { fields: [clientBriefing.userId], references: [user.id] }),
+}));
+
+export const clientPollRelations = relations(clientPoll, ({ one }) => ({
+  client: one(client, { fields: [clientPoll.clientId], references: [client.id] }),
+  user: one(user, { fields: [clientPoll.userId], references: [user.id] }),
+}));
+
+export const googleCalendarCredentialRelations = relations(googleCalendarCredential, ({ one }) => ({
+  user: one(user, { fields: [googleCalendarCredential.userId], references: [user.id] }),
+}));
+
+export const agencySettingsRelations = relations(agencySettings, ({ one }) => ({
+  user: one(user, { fields: [agencySettings.userId], references: [user.id] }),
+}));
+
+export const aiSettingsRelations = relations(aiSettings, ({ one }) => ({
+  user: one(user, { fields: [aiSettings.userId], references: [user.id] }),
+}));
+
+// ============================================================
+// GESTAO DE PROJETOS — Relations
+// ============================================================
+
+export const projectRelations = relations(project, ({ one, many }) => ({
+  client: one(client, { fields: [project.clientId], references: [client.id] }),
+  user: one(user, { fields: [project.userId], references: [user.id] }),
+  milestones: many(milestone),
+  tasks: many(projectTask),
+}));
+
+export const milestoneRelations = relations(milestone, ({ one, many }) => ({
+  project: one(project, { fields: [milestone.projectId], references: [project.id] }),
+  user: one(user, { fields: [milestone.userId], references: [user.id] }),
+  tasks: many(projectTask),
+}));
+
+export const teamMemberRelations = relations(teamMember, ({ one, many }) => ({
+  user: one(user, { fields: [teamMember.userId], references: [user.id] }),
+  assignedTasks: many(projectTask),
+  timeEntries: many(timeEntry),
+}));
+
+export const timeEntryRelations = relations(timeEntry, ({ one }) => ({
+  task: one(projectTask, { fields: [timeEntry.taskId], references: [projectTask.id] }),
+  teamMember: one(teamMember, { fields: [timeEntry.teamMemberId], references: [teamMember.id] }),
+  user: one(user, { fields: [timeEntry.userId], references: [user.id] }),
 }));

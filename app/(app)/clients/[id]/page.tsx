@@ -13,6 +13,7 @@ import {
   Location01Icon,
   ArrowLeft01Icon,
   Add01Icon,
+  File01Icon,
   Coins01Icon,
   ZapIcon,
   Message01Icon,
@@ -29,7 +30,8 @@ import {
   Facebook01Icon,
   TwitterIcon,
   Copy01Icon,
-  Alert01Icon
+  Alert01Icon,
+  Download01Icon
 } from "@hugeicons/core-free-icons"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,6 +48,17 @@ import { AdSpendMeter } from "@/components/ad-spend-meter"
 import { Calendar03Icon, Link01Icon, Shield01Icon, Chart01Icon, HelpCircleIcon } from "@hugeicons/core-free-icons"
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
 import { QuickActions } from "@/components/quick-actions"
+import { CalendarConnectionCard } from "@/components/calendar-connection-card"
+import { CalendarMonthView } from "@/components/calendar-month-view"
+import { ClientOverviewTab } from "@/components/client-overview-tab"
+import { ProjectSelector } from "@/components/project-selector"
+import { CreateProjectModal } from "@/components/create-project-modal"
+import { ProjectInfoBar } from "@/components/project-info-bar"
+import { BudgetProposalWizard } from "@/components/budget-proposal-wizard"
+import { ContractWizard } from "@/components/contract-wizard"
+import { ClientTimeline } from "@/components/client-timeline"
+import { ResponseCopilot } from "@/components/response-copilot"
+import { Layers01Icon, SparklesIcon } from "@hugeicons/core-free-icons"
 
 interface Client {
   id: string
@@ -66,6 +79,7 @@ interface Client {
   notes?: string | null
   socials?: Record<string, string> | null
   websites?: string[] | null
+  createdAt: string
 }
 
 interface KanbanTask {
@@ -80,15 +94,6 @@ interface Service {
   price: string
   billing: "mensal" | "anual" | "unico"
   description?: string
-}
-
-interface Proposal {
-  id: string
-  title: string
-  value: string
-  status: "pending" | "approved" | "rejected"
-  niche: string
-  scope: string
 }
 
 export default function ClientDashboardPage() {
@@ -114,15 +119,7 @@ export default function ClientDashboardPage() {
   const [showCatalogModal, setShowCatalogModal] = useState(false)
 
   // Proposals states
-  const [proposals, setProposals] = useState<Proposal[]>([])
-  const [showProposalModal, setShowProposalModal] = useState(false)
-  const [proposalPreview, setProposalPreview] = useState<Proposal | null>(null)
-
-  const [newProposalTitle, setNewProposalTitle] = useState("")
-  const [newProposalValue, setNewProposalValue] = useState("")
-  const [newProposalNiche, setNewProposalNiche] = useState("")
-  const [newProposalScope, setNewProposalScope] = useState("")
-  const [generatingProposal, setGeneratingProposal] = useState(false)
+  const [savedProposals, setSavedProposals] = useState<{ id: string; name: string; notes?: string | null; createdAt: string }[]>([])
 
   // Pós-venda states
   const [approvals, setApprovals] = useState<{ id: string; title: string; description?: string; fileType: string; status: "pending" | "approved" | "revision"; clientComment?: string }[]>([])
@@ -144,7 +141,7 @@ export default function ClientDashboardPage() {
   ])
 
   // Custom Tabs state
-  const [activeTab, setActiveTab] = useState<"crm" | "financial" | "delivery" | "notes">("crm")
+  const [activeTab, setActiveTab] = useState<"inicio" | "crm" | "financial" | "delivery" | "documentos" | "calendar" | "notes" | "timeline" | "copilot">("inicio")
 
   // Active Creation Modals
   const [showApprovalModalNew, setShowApprovalModalNew] = useState(false)
@@ -153,12 +150,56 @@ export default function ClientDashboardPage() {
   const [showAdSpendModalNew, setShowAdSpendModalNew] = useState(false)
   const [showQuicklinkModalNew, setShowQuicklinkModalNew] = useState(false)
 
+  // Project-centric states
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false)
+  const [clientProjects, setClientProjects] = useState<Array<{ id: string; name: string; status: string; budget?: string }>>([])
+  const [projectRefreshKey, setProjectRefreshKey] = useState(0)
+  const [hasProjects, setHasProjects] = useState<boolean | null>(null)
+
+  // Budget Wizard
+  const [showBudgetWizard, setShowBudgetWizard] = useState(false)
+
+  // Contract Wizard
+  const [showContractWizard, setShowContractWizard] = useState(false)
+  const [agencySettings, setAgencySettings] = useState<any>(null)
+
   // Quick action modals
   const [showQuickTaskModal, setShowQuickTaskModal] = useState(false)
   const [quickTaskTitle, setQuickTaskTitle] = useState("")
   const [showQuickNoteModal, setShowQuickNoteModal] = useState(false)
   const [quickNoteContent, setQuickNoteContent] = useState("")
   const [quickNoteTag, setQuickNoteTag] = useState("context")
+  const [showQuickMeetingModal, setShowQuickMeetingModal] = useState(false)
+  const [quickMeetingTitle, setQuickMeetingTitle] = useState("")
+  const [quickMeetingDate, setQuickMeetingDate] = useState("")
+  const [quickMeetingTime, setQuickMeetingTime] = useState("10:00")
+  const [quickMeetingPlatform, setQuickMeetingPlatform] = useState("Google Meet")
+  const [quickMeetingDesc, setQuickMeetingDesc] = useState("")
+  const [creatingMeeting, setCreatingMeeting] = useState(false)
+
+  // Quick Briefing Modal states
+  const [showQuickBriefingModal, setShowQuickBriefingModal] = useState(false)
+  const [briefingName, setBriefingName] = useState("")
+  const [briefingGoal, setBriefingGoal] = useState("")
+  const [briefingLink, setBriefingLink] = useState("")
+  const [creatingBriefing, setCreatingBriefing] = useState(false)
+
+  // Quick Contract Modal states
+  const [showQuickContractModal, setShowQuickContractModal] = useState(false)
+  const [quickContractName, setQuickContractName] = useState("Contrato de Prestacao de Servicos")
+  const [quickContractContent, setQuickContractContent] = useState("")
+  const [quickContractLink, setQuickContractLink] = useState("")
+  const [creatingQuickContract, setCreatingQuickContract] = useState(false)
+
+  // Satisfaction Modal states
+  const [showSatisfactionModal, setShowSatisfactionModal] = useState(false)
+
+  // Data for overview tab
+  const [satisfaction, setSatisfaction] = useState<Array<{ id: string; score: number; note?: string; createdAt: string }>>([])
+  const [contracts, setContracts] = useState<Array<{ id: string; title: string; status: string; createdAt: string }>>([])
+  const [meetings, setMeetings] = useState<Array<{ id: string; title: string; status: string; meetingDate: string; platform?: string }>>([])
+  const [interactions, setInteractions] = useState<Array<{ id: string; type: string; description?: string | null; createdAt: string }>>([])
 
   // Creation Form States
   const [newApprovalTitle, setNewApprovalTitle] = useState("")
@@ -170,6 +211,8 @@ export default function ClientDashboardPage() {
   const [newScopeLabel, setNewScopeLabel] = useState("")
   const [newScopeTotalQuota, setNewScopeTotalQuota] = useState("")
   const [newScopePeriod, setNewScopePeriod] = useState("monthly")
+  const [newScopePrice, setNewScopePrice] = useState("0")
+  const [newScopeBilling, setNewScopeBilling] = useState("mensal")
   const [creatingScope, setCreatingScope] = useState(false)
 
   const [newAssetName, setNewAssetName] = useState("")
@@ -261,6 +304,8 @@ export default function ClientDashboardPage() {
             label: newScopeLabel,
             totalQuota: parseInt(newScopeTotalQuota),
             period: newScopePeriod,
+            price: newScopePrice,
+            billing: newScopeBilling,
           }),
         })
         if (res.ok) {
@@ -278,6 +323,9 @@ export default function ClientDashboardPage() {
             label: newScopeLabel,
             totalQuota: parseInt(newScopeTotalQuota),
             period: newScopePeriod,
+            price: newScopePrice,
+            billing: newScopeBilling,
+            status: "active",
           }),
         })
         if (res.ok) {
@@ -290,6 +338,8 @@ export default function ClientDashboardPage() {
       }
       setNewScopeLabel("")
       setNewScopeTotalQuota("")
+      setNewScopePrice("0")
+      setNewScopeBilling("mensal")
       setEditingScope(null)
       setShowScopeModalNew(false)
     } catch (err) {
@@ -491,9 +541,12 @@ export default function ClientDashboardPage() {
       }
     }
 
-    async function loadTasks() {
+    async function loadTasks(projectId?: string | null) {
       try {
-        const res = await fetch(`/api/client-portal/tasks?clientId=${id}`)
+        const url = projectId
+          ? `/api/client-portal/tasks?clientId=${id}&projectId=${projectId}`
+          : `/api/client-portal/tasks?clientId=${id}`
+        const res = await fetch(url)
         if (res.ok) {
           const data = await res.json()
           setTasks(data)
@@ -503,10 +556,29 @@ export default function ClientDashboardPage() {
       }
     }
 
+    async function loadProjects() {
+      try {
+        const res = await fetch(`/api/projects?clientId=${id}`)
+        if (res.ok) {
+          const data = await res.json()
+          const list = Array.isArray(data) ? data : []
+          setClientProjects(list)
+          setHasProjects(list.length > 0)
+          if (list.length > 0 && !selectedProjectId) {
+            setSelectedProjectId(list[0].id)
+          }
+        }
+      } catch (err) {
+        console.error(err)
+        setHasProjects(false)
+      }
+    }
+
     if (id) {
       loadDetail()
       loadGlobalServices()
       loadTasks()
+      loadProjects()
 
       // Pós-venda fetches
       fetch(`/api/client-portal/approvals?clientId=${id}`).then(r => r.json()).then(setApprovals).catch(() => {})
@@ -516,8 +588,24 @@ export default function ClientDashboardPage() {
       fetch(`/api/client-portal/quicklinks?clientId=${id}`).then(r => r.json()).then(setQuicklinks).catch(() => {})
       fetch(`/api/client-portal/scope?clientId=${id}`).then(r => r.json()).then(setScopes).catch(() => {})
       fetch(`/api/client-portal/ad-spend?clientId=${id}`).then(r => r.json()).then(setAdSpendTrackers).catch(() => {})
+      fetch(`/api/client-portal/satisfaction?clientId=${id}`).then(r => r.json()).then(setSatisfaction).catch(() => {})
+      fetch(`/api/client-portal/contracts?clientId=${id}`).then(r => r.json()).then(setContracts).catch(() => {})
+      fetch(`/api/client-portal/proposals?clientId=${id}`).then(r => r.json()).then(setSavedProposals).catch(() => {})
+      fetch(`/api/client-portal/meetings?clientId=${id}`).then(r => r.json()).then(setMeetings).catch(() => {})
+      fetch(`/api/client-portal/interactions?clientId=${id}`).then(r => r.json()).then(setInteractions).catch(() => {})
+      fetch("/api/agency-settings").then(r => r.json()).then(setAgencySettings).catch(() => {})
     }
   }, [id])
+
+  // Reload tasks when project selection changes
+  useEffect(() => {
+    if (id && selectedProjectId) {
+      fetch(`/api/client-portal/tasks?clientId=${id}&projectId=${selectedProjectId}`)
+        .then(r => r.json())
+        .then(setTasks)
+        .catch(() => {})
+    }
+  }, [id, selectedProjectId])
 
   const addGlobalServiceToClient = (gService: Service) => {
     if (services.some(s => s.name === gService.name)) {
@@ -559,7 +647,7 @@ export default function ClientDashboardPage() {
     const res = await fetch("/api/client-portal/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: id, userId, title: newTaskTitle, status }),
+      body: JSON.stringify({ clientId: id, userId, title: newTaskTitle, status, projectId: selectedProjectId || undefined }),
     })
     const task = await res.json()
     setTasks(prev => [...prev, task])
@@ -626,41 +714,6 @@ export default function ClientDashboardPage() {
     setOnboardingTasks(prev => prev.map(t => t.isCompleted === completed ? t : { ...t, isCompleted: completed }))
   }
 
-  // Proposals management
-  const handleCreateProposalSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newProposalTitle.trim() || !newProposalValue.trim()) return
-    const p: Proposal = {
-      id: Date.now().toString(),
-      title: newProposalTitle,
-      value: newProposalValue,
-      status: "pending",
-      niche: newProposalNiche || "Geral",
-      scope: newProposalScope || "Escopo comercial sob demanda."
-    }
-    setProposals(prev => [p, ...prev])
-    setNewProposalTitle("")
-    setNewProposalValue("")
-    setNewProposalNiche("")
-    setNewProposalScope("")
-    setShowProposalModal(false)
-    triggerToast("Proposta comercial salva!")
-  }
-
-  // AI Proposal generation simulator
-  const handleAiProposalGenerate = () => {
-    if (!client) return
-    setGeneratingProposal(true)
-    setTimeout(() => {
-      setNewProposalTitle(`Planejamento de Expansão Digital - ${client.name}`)
-      setNewProposalValue("R$ 24.500,00 único + R$ 1.200,00 mensal")
-      setNewProposalNiche(client.industry || "Tecnologia")
-      setNewProposalScope(`PROPOSTA COMERCIAL PREMIUM\n\n1. Otimização SEO local e posicionamento de marca.\n2. Integração do Funil CRM para automatizar a jornada do lead.\n3. Suporte dedicado Kyper com SLA de resposta de 2 horas.`)
-      setGeneratingProposal(false)
-      triggerToast("Proposta estruturada pela IA!")
-    }, 1500)
-  }
-
   // Quick Action Handlers
   const handleQuickCreateTask = async () => {
     if (!quickTaskTitle.trim()) return
@@ -676,12 +729,111 @@ export default function ClientDashboardPage() {
     triggerToast("Tarefa criada!")
   }
 
+
+  const handleQuickCreateBriefing = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!briefingName.trim()) return
+    setCreatingBriefing(true)
+    try {
+      const res = await fetch("/api/client-portal/briefing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: id,
+          userId,
+          projectName: briefingName,
+          businessGoal: briefingGoal,
+          submit: false,
+        }),
+      })
+      if (res.ok) {
+        const baseOrigin = window.location.origin
+        setBriefingLink(baseOrigin + "/portal/" + userId + "/briefing/" + id)
+        triggerToast("Briefing salvo como rascunho!")
+      } else {
+        triggerToast("Erro ao criar briefing.", "error")
+      }
+    } catch {
+      triggerToast("Erro de conexao.", "error")
+    } finally {
+      setCreatingBriefing(false)
+    }
+  }
+
+  const handleQuickCreateContract = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!quickContractName.trim()) return
+    setCreatingQuickContract(true)
+    try {
+      const res = await fetch("/api/client-portal/contracts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: id,
+          userId,
+          title: quickContractName,
+          customContent: quickContractContent || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        const baseOrigin = window.location.origin
+        setQuickContractLink(baseOrigin + "/portal/" + userId + "/contrato/" + data.id)
+        triggerToast("Contrato criado com sucesso!")
+      } else {
+        triggerToast(data.error || "Erro ao criar contrato.", "error")
+      }
+    } catch {
+      triggerToast("Erro de conexao.", "error")
+    } finally {
+      setCreatingQuickContract(false)
+    }
+  }
+
   const handleQuickAddNote = async () => {
     if (!quickNoteContent.trim()) return
     await handleAddNote(quickNoteContent, quickNoteTag)
     setQuickNoteContent("")
     setQuickNoteTag("context")
     setShowQuickNoteModal(false)
+  }
+
+  const handleQuickCreateMeeting = async () => {
+    if (!quickMeetingTitle.trim() || !quickMeetingDate.trim()) return
+    setCreatingMeeting(true)
+    try {
+      const meetingDateTime = `${quickMeetingDate}T${quickMeetingTime}:00`
+      const res = await fetch("/api/client-portal/meetings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: id,
+          userId,
+          title: quickMeetingTitle,
+          description: quickMeetingDesc || undefined,
+          meetingDate: meetingDateTime,
+          platform: quickMeetingPlatform,
+        }),
+      })
+      if (res.ok) {
+        const meeting = await res.json()
+        setMeetings(prev => [meeting, ...prev])
+        triggerToast("Reunião agendada com sucesso!")
+      } else {
+        triggerToast("Erro ao agendar reunião.", "error")
+      }
+    } catch (err) {
+      console.error(err)
+      triggerToast("Erro ao processar reunião.", "error")
+    } finally {
+      setQuickMeetingTitle("")
+      setQuickMeetingDate("")
+      setQuickMeetingTime("10:00")
+      setQuickMeetingPlatform("Google Meet")
+      setQuickMeetingDesc("")
+      setCreatingMeeting(false)
+      setShowQuickMeetingModal(false)
+    }
   }
 
   // Delete & Edit handlers for Pós-Venda items
@@ -741,8 +893,30 @@ export default function ClientDashboardPage() {
     setNewScopeLabel(item.label)
     setNewScopeTotalQuota(String(item.totalQuota))
     setNewScopePeriod(item.period)
+    setNewScopePrice(item.price || "0")
+    setNewScopeBilling(item.billing || "mensal")
     setEditingScope(item)
     setShowScopeModalNew(true)
+  }
+
+  const handleToggleScopeStatus = async (scopeId: string, newStatus: "active" | "closed") => {
+    try {
+      const res = await fetch(`/api/client-portal/scope/${scopeId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setScopes(prev => prev.map(s => s.id === scopeId ? { ...s, ...updated } : s))
+        triggerToast(newStatus === "closed" ? "Serviço movido para o histórico!" : "Serviço reativado com sucesso!")
+      } else {
+        triggerToast("Erro ao alterar status do serviço.", "error")
+      }
+    } catch (err) {
+      console.error(err)
+      triggerToast("Erro ao processar alteração.", "error")
+    }
   }
 
   const handleEditAsset = (item: any) => {
@@ -830,6 +1004,17 @@ export default function ClientDashboardPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {hasProjects && (
+            <ProjectSelector
+              clientId={id}
+              selectedProjectId={selectedProjectId}
+              onProjectChange={setSelectedProjectId}
+              onCreateProject={() => setShowCreateProjectModal(true)}
+              refreshKey={projectRefreshKey}
+              initialProjects={clientProjects}
+              compact
+            />
+          )}
           <Button onClick={handleStartOutreach} variant="outline" className="text-xs h-9 gap-1.5 active:scale-[0.98] transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 font-semibold">
             <HugeiconsIcon icon={Message01Icon} className="size-4" />
             Iniciar Abordagem
@@ -837,18 +1022,44 @@ export default function ClientDashboardPage() {
         </div>
       </header>
 
-      {/* Quick Actions Bar */}
-      <QuickActions
-        client={client}
-        onGenerateProposal={() => setShowProposalModal(true)}
-        onCreateTask={() => setShowQuickTaskModal(true)}
-        onCreateApproval={() => setShowApprovalModalNew(true)}
-        onAddNote={() => setShowQuickNoteModal(true)}
-        onToast={triggerToast}
-      />
+      {/* No Projects: centered empty state */}
+      {hasProjects === false && (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-md">
+            <ProjectSelector
+              clientId={id}
+              selectedProjectId={selectedProjectId}
+              onProjectChange={setSelectedProjectId}
+              onCreateProject={() => setShowCreateProjectModal(true)}
+              refreshKey={projectRefreshKey}
+              initialProjects={clientProjects}
+              onProjectsLoaded={(projs) => {
+                setClientProjects(projs)
+                setHasProjects(projs.length > 0)
+                if (projs.length > 0 && !selectedProjectId) {
+                  setSelectedProjectId(projs[0].id)
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
 
-      {/* Main Grid View - Fixed viewport height layout */}
-      <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 p-6 overflow-hidden min-h-0">
+      {/* Has Projects: full layout */}
+      {hasProjects === true && (
+        <>
+          {/* Quick Actions Bar */}
+          <QuickActions
+            client={client}
+            onGenerateProposal={() => setShowBudgetWizard(true)}
+            onCreateTask={() => setShowQuickTaskModal(true)}
+            onCreateApproval={() => setShowApprovalModalNew(true)}
+            onAddNote={() => setShowQuickNoteModal(true)}
+            onToast={triggerToast}
+          />
+
+          {/* Main Grid View - Fixed viewport height layout */}
+          <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-6 p-6 overflow-hidden min-h-0">
         
         {/* Left Sidebar (Col-span 4) */}
         <aside className="xl:col-span-4 flex flex-col gap-5 overflow-y-auto no-scrollbar h-full pr-1 shrink-0">
@@ -1062,11 +1273,11 @@ export default function ClientDashboardPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 p-2 bg-muted/5 border border-border/20 rounded-lg">
                     <span className="text-[10px] text-muted-foreground truncate flex-1 font-mono">
-                      /portal/{session?.user?.username}
+                      /portal/{userId}
                     </span>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/portal/${session?.user?.username}`)
+                        navigator.clipboard.writeText(`${window.location.origin}/portal/${userId}`)
                         triggerToast("URL do portal copiada!")
                       }}
                       className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors"
@@ -1090,24 +1301,54 @@ export default function ClientDashboardPage() {
             </div>
           </div>
 
+          {/* Google Calendar (Double Bezel) */}
+          <CalendarConnectionCard userId={userId} triggerToast={triggerToast} />
+
         </aside>
         <section className="xl:col-span-8 flex flex-col h-full overflow-hidden min-h-0">
           
+          {/* Project Info Bar */}
+          {selectedProjectId && clientProjects.length > 0 && (
+            <div className="mb-3 shrink-0">
+              <ProjectInfoBar
+                project={clientProjects.find(p => p.id === selectedProjectId)!}
+                taskStats={{
+                  total: tasks.length,
+                  done: tasks.filter(t => t.status === "done").length,
+                }}
+                onUpdate={async (projectId, data) => {
+                  await fetch(`/api/projects/${projectId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                  })
+                  setClientProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...data } : p))
+                  triggerToast("Projeto atualizado!")
+                }}
+              />
+            </div>
+          )}
+
           {/* Custom Tabs Navigation */}
-          <div className="flex items-center gap-2 border-b border-border/40 pb-3 shrink-0">
+          <div className="flex items-center gap-1.5 border-b border-border/40 pb-2.5 shrink-0 overflow-x-auto no-scrollbar">
             {[
-              { id: "crm", label: "CRM & Atividades" },
-              { id: "financial", label: "Financeiro & Vendas" },
-              { id: "delivery", label: "Entregas & Onboarding" },
-              { id: "notes", label: "Anotações (Context)" }
+              { id: "inicio", label: "Início" },
+              { id: "crm", label: "CRM" },
+              { id: "financial", label: "Financeiro" },
+              { id: "delivery", label: "Entregas" },
+              { id: "documentos", label: "Documentos" },
+              { id: "calendar", label: "Calendário" },
+              { id: "notes", label: "Anotações" },
+              { id: "timeline", label: "Timeline" },
+              { id: "copilot", label: "Copiloto" }
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2 text-[11px] font-semibold uppercase tracking-wider rounded-xl transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98] ring-1 ${
-                  activeTab === tab.id 
-                    ? "bg-primary/10 text-primary ring-primary/20"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground ring-transparent"
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 active:scale-[0.98] whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 }`}
               >
                 {tab.label}
@@ -1118,6 +1359,51 @@ export default function ClientDashboardPage() {
           {/* Tab Content Area */}
           <div className="flex-1 overflow-y-auto no-scrollbar min-h-0 pt-5">
             
+            {/* 0. Início (Overview) Tab */}
+            {activeTab === "inicio" && client && (
+              <ClientOverviewTab
+                client={client}
+                tasks={tasks}
+                approvals={approvals}
+                onboardingTasks={onboardingTasks}
+                interactions={interactions}
+                scopes={scopes}
+                satisfaction={satisfaction}
+                contracts={contracts}
+                meetings={meetings}
+                stage={
+                  client.status === "Onboarding"
+                    ? "onboarding"
+                    : client.status === "Em Risco"
+                      ? "at_risk"
+                      : "active"
+                }
+                onNavigate={(path) => router.push(path)}
+                onModalAction={(action) => {
+                  if (action === "task") setShowQuickTaskModal(true)
+                  if (action === "scope") setShowScopeModalNew(true)
+                  if (action === "approval") setShowApprovalModalNew(true)
+                  if (action === "meeting") setShowQuickMeetingModal(true)
+                  if (action === "portal") {
+                    // Toggle portal
+                    fetch(`/api/clients/${id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ portalEnabled: !client.portalEnabled }),
+                    }).then(() => {
+                      setClient(prev => prev ? { ...prev, portalEnabled: !prev.portalEnabled } : prev)
+                      triggerToast(client.portalEnabled ? "Portal desativado." : "Portal ativado!")
+                    })
+                  }
+                  if (action === "briefing") setShowQuickBriefingModal(true)
+                  if (action === "contract") setShowContractWizard(true)
+                  if (action === "proposal") setShowBudgetWizard(true)
+                  if (action === "interactions") setActiveTab("notes")
+                  if (action === "satisfaction") setShowSatisfactionModal(true)
+                }}
+              />
+            )}
+
             {/* 1. CRM & Kanban Tab */}
             {activeTab === "crm" && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 tab-content-item">
@@ -1260,44 +1546,36 @@ export default function ClientDashboardPage() {
                         <HugeiconsIcon icon={InvoiceIcon} className="size-4 text-primary" />
                         <h3 className="font-semibold text-xs text-foreground font-display">Propostas Comerciais</h3>
                       </div>
-                      <Button 
-                        onClick={() => setShowProposalModal(true)}
-                        className="h-7 text-[8px] font-bold uppercase tracking-wider gap-1 rounded-lg active:scale-[0.98] transition-all duration-300"
+                      <Button
+                        onClick={() => setActiveTab("documentos")}
+                        variant="ghost"
+                        className="h-7 text-[9px] font-semibold gap-1 rounded-lg active:scale-[0.98] transition-all duration-300"
                       >
-                        <HugeiconsIcon icon={Add01Icon} className="size-3" /> Gerar Proposta
+                        Ver Documentos →
                       </Button>
                     </div>
                     
                     <div className="flex-1 overflow-y-auto no-scrollbar space-y-2.5">
-                      {proposals.length === 0 ? (
+                      {savedProposals.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
                           <p className="text-xs text-muted-foreground">Nenhuma proposta comercial gerada.</p>
-                          <p className="text-[10px] text-muted-foreground/60 mt-1">Gere propostas inteligentes personalizadas para este cliente.</p>
+                          <p className="text-[10px] text-muted-foreground/60 mt-1">Gere propostas na aba Documentos.</p>
                         </div>
                       ) : (
-                        proposals.map(p => (
+                        savedProposals.slice(0, 4).map(p => (
                           <div key={p.id} className="p-3 bg-muted/5 border border-border/30 rounded-2xl flex items-center justify-between hover:bg-muted/10 transition-colors">
-                            <div>
-                              <p className="text-xs font-semibold text-foreground">{p.title}</p>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">Valor Proposto: {p.value}</p>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-foreground truncate">{p.name}</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(p.createdAt).toLocaleDateString("pt-BR")}</p>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="xs"
-                                onClick={() => setProposalPreview(p)}
-                                className="h-6 text-[8px] font-bold uppercase tracking-wider rounded-lg active:scale-[0.98] transition-all duration-300"
-                              >
-                                Visualizar
-                              </Button>
-                              <span className={`text-[8px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5 ring-1 ${
-                                p.status === 'approved' ? 'bg-primary/10 text-primary ring-primary/20' :
-                                p.status === 'rejected' ? 'bg-destructive/10 text-destructive ring-destructive/20' :
-                                'bg-secondary text-secondary-foreground ring-border/50'
-                              }`}>
-                                {p.status === 'approved' ? 'Aprovada' : p.status === 'rejected' ? 'Recusada' : 'Aguardando'}
-                              </span>
-                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(`/api/pdf/proposal/${p.id}`, "_blank")}
+                              className="h-6 text-[9px] font-semibold gap-1 px-2 rounded-lg shrink-0 active:scale-[0.98] transition-all duration-300"
+                            >
+                              <HugeiconsIcon icon={Download01Icon} className="size-3" /> PDF
+                            </Button>
                           </div>
                         ))
                       )}
@@ -1455,7 +1733,7 @@ export default function ClientDashboardPage() {
                           </Button>
                         </div>
                       ) : (
-                        <ScopeWall scopes={scopes} onDelete={handleDeleteScope} onEdit={handleEditScope} />
+                        <ScopeWall scopes={scopes} onDelete={handleDeleteScope} onEdit={handleEditScope} onToggleStatus={handleToggleScopeStatus} />
                       )}
                     </div>
                   </div>
@@ -1506,7 +1784,157 @@ export default function ClientDashboardPage() {
               </div>
             )}
 
-            {/* 4. Notes Tab */}
+            {/* 5. Documentos Tab */}
+            {activeTab === "documentos" && (
+              <div className="space-y-5 tab-content-item">
+                {/* Contracts Section */}
+                <div className="double-bezel-card bg-muted/10 ring-1 ring-border/40 p-1.5 rounded-[1.5rem]">
+                  <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5">
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-border/20">
+                      <div className="flex items-center gap-2">
+                        <HugeiconsIcon icon={Shield01Icon} strokeWidth={1.5} className="size-4 text-primary" />
+                        <h3 className="font-semibold text-xs text-foreground font-display">Contratos</h3>
+                        {contracts.length > 0 && (
+                          <span className="text-[9px] font-bold bg-muted text-muted-foreground rounded px-1.5 py-0.5">{contracts.length}</span>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => setShowContractWizard(true)}
+                        className="h-7 text-[9px] font-semibold gap-1 rounded-lg active:scale-[0.98] transition-all duration-300"
+                      >
+                        <HugeiconsIcon icon={Add01Icon} className="size-3" /> Novo Contrato
+                      </Button>
+                    </div>
+                    {contracts.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-border/30 rounded-xl bg-muted/5">
+                        <HugeiconsIcon icon={Shield01Icon} strokeWidth={1.5} className="size-8 text-muted-foreground/40 mb-2" />
+                        <p className="text-xs text-muted-foreground">Nenhum contrato criado.</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-0.5">Crie contratos e envie para assinatura digital.</p>
+                        <Button
+                          onClick={() => setShowContractWizard(true)}
+                          variant="link"
+                          className="text-[10px] text-primary h-auto p-0 mt-2 font-semibold"
+                        >
+                          Criar Primeiro Contrato
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {contracts.map((c) => (
+                          <div key={c.id} className="flex items-center justify-between p-3 bg-muted/5 border border-border/30 rounded-xl hover:bg-muted/10 transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`size-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                c.status === "signed" ? "bg-green-500/10" : "bg-amber-500/10"
+                              }`}>
+                                <HugeiconsIcon icon={CheckmarkCircle02Icon} strokeWidth={1.5} className={`size-4 ${
+                                  c.status === "signed" ? "text-green-500" : "text-amber-500"
+                                }`} />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-foreground truncate">{c.title}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {c.status === "signed" ? "Assinado" : "Pendente"} · {new Date(c.createdAt).toLocaleDateString("pt-BR")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(`/api/pdf/contract/${c.id}`, "_blank")}
+                                className="h-7 text-[9px] font-semibold gap-1 px-2 rounded-lg active:scale-[0.98] transition-all duration-300"
+                              >
+                                <HugeiconsIcon icon={Download01Icon} className="size-3" /> PDF
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(`/portal/${userId}/contrato/${c.id}`, "_blank")}
+                                className="h-7 text-[9px] font-semibold gap-1 px-2 rounded-lg active:scale-[0.98] transition-all duration-300"
+                              >
+                                Portal
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Proposals Section */}
+                <div className="double-bezel-card bg-muted/10 ring-1 ring-border/40 p-1.5 rounded-[1.5rem]">
+                  <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5">
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-border/20">
+                      <div className="flex items-center gap-2">
+                        <HugeiconsIcon icon={InvoiceIcon} strokeWidth={1.5} className="size-4 text-primary" />
+                        <h3 className="font-semibold text-xs text-foreground font-display">Propostas Comerciais</h3>
+                        {savedProposals.length > 0 && (
+                          <span className="text-[9px] font-bold bg-muted text-muted-foreground rounded px-1.5 py-0.5">{savedProposals.length}</span>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => setShowBudgetWizard(true)}
+                        className="h-7 text-[9px] font-semibold gap-1 rounded-lg active:scale-[0.98] transition-all duration-300"
+                      >
+                        <HugeiconsIcon icon={Add01Icon} className="size-3" /> Nova Proposta
+                      </Button>
+                    </div>
+                    {savedProposals.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed border-border/30 rounded-xl bg-muted/5">
+                        <HugeiconsIcon icon={InvoiceIcon} strokeWidth={1.5} className="size-8 text-muted-foreground/40 mb-2" />
+                        <p className="text-xs text-muted-foreground">Nenhuma proposta criada.</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-0.5">Gere propostas personalizadas e exporte como PDF.</p>
+                        <Button
+                          onClick={() => setShowBudgetWizard(true)}
+                          variant="link"
+                          className="text-[10px] text-primary h-auto p-0 mt-2 font-semibold"
+                        >
+                          Criar Primeira Proposta
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {savedProposals.map((p) => (
+                          <div key={p.id} className="flex items-center justify-between p-3 bg-muted/5 border border-border/30 rounded-xl hover:bg-muted/10 transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                <HugeiconsIcon icon={File01Icon} strokeWidth={1.5} className="size-4 text-primary" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-foreground truncate">{p.name}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {new Date(p.createdAt).toLocaleDateString("pt-BR")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(`/api/pdf/proposal/${p.id}`, "_blank")}
+                                className="h-7 text-[9px] font-semibold gap-1 px-2 rounded-lg active:scale-[0.98] transition-all duration-300"
+                              >
+                                <HugeiconsIcon icon={Download01Icon} className="size-3" /> PDF
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 6. Calendar Tab */}
+            {activeTab === "calendar" && (
+              <div className="tab-content-item">
+                <CalendarMonthView clientId={id} userId={userId} triggerToast={triggerToast} />
+              </div>
+            )}
+
+            {/* 6. Notes Tab */}
             {activeTab === "notes" && (
               <div className="double-bezel-card tab-content-item bg-muted/10 ring-1 ring-border/40 p-1.5 rounded-[1.5rem]">
                 <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5">
@@ -1519,210 +1947,70 @@ export default function ClientDashboardPage() {
               </div>
             )}
 
+            {/* 7. Timeline Tab */}
+            {activeTab === "timeline" && (
+              <div className="double-bezel-card tab-content-item bg-muted/10 ring-1 ring-border/40 p-1.5 rounded-[1.5rem]">
+                <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/20">
+                    <HugeiconsIcon icon={Layers01Icon} strokeWidth={1.5} className="size-4 text-primary" />
+                    <h3 className="font-semibold text-xs text-foreground font-display">Linha do Tempo Unificada</h3>
+                  </div>
+                  <ClientTimeline clientId={id} />
+                </div>
+              </div>
+            )}
+
+            {/* 8. Copilot Tab */}
+            {activeTab === "copilot" && (
+              <div className="double-bezel-card tab-content-item bg-muted/10 ring-1 ring-border/40 p-1.5 rounded-[1.5rem]">
+                <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(1.5rem-0.375rem)] p-5">
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/20">
+                    <HugeiconsIcon icon={SparklesIcon} strokeWidth={1.5} className="size-4 text-primary" />
+                    <h3 className="font-semibold text-xs text-foreground font-display">Copiloto de Respostas</h3>
+                  </div>
+                  <ResponseCopilot clientId={id} clientName={client?.name || ""} />
+                </div>
+              </div>
+            )}
+
           </div>
 
         </section>
 
       </div>
-
-      {/* 1. Modal Geração de Propostas Comerciais */}
-      {showProposalModal && (
-        <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-300">
-          <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-lg rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 relative">
-            <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-6 relative">
-              <button 
-                onClick={() => setShowProposalModal(false)}
-                className="absolute right-4 top-4 p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg hover:bg-muted active:scale-[0.98] transition-all duration-300"
-              >
-                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-              </button>
-
-              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">Gerador de Propostas Comerciais</h3>
-              <p className="text-[10px] text-muted-foreground mb-4">Estrutura de propostas profissionais customizadas com a identidade do cliente.</p>
-
-              <div className="mb-4">
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={handleAiProposalGenerate}
-                  disabled={generatingProposal}
-                  className="w-full text-xs font-semibold gap-1.5 h-9 bg-primary/5 text-primary border border-primary/10 hover:border-primary/20 hover:bg-primary/10 active:scale-[0.98] transition-all duration-300"
-                >
-                  {generatingProposal ? "Analisando Nicho..." : "Gerar Proposta Inteligente via IA"}
-                </Button>
-              </div>
-              
-              <form onSubmit={handleCreateProposalSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="p-title" className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Título da Proposta</Label>
-                    <Input
-                      id="p-title"
-                      type="text"
-                      required
-                      value={newProposalTitle}
-                      onChange={(e) => setNewProposalTitle(e.target.value)}
-                      placeholder="Ex: Gestão Tráfego Pago"
-                      className="bg-muted/10 border-border/40 text-xs"
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="p-niche" className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Nicho / Segmento</Label>
-                    <Input
-                      id="p-niche"
-                      type="text"
-                      value={newProposalNiche}
-                      onChange={(e) => setNewProposalNiche(e.target.value)}
-                      placeholder="Ex: E-Commerce, Saúde"
-                      className="bg-muted/10 border-border/40 text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor="p-value" className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Valor Proposto</Label>
-                  <Input
-                    id="p-value"
-                    type="text"
-                    required
-                    value={newProposalValue}
-                    onChange={(e) => setNewProposalValue(e.target.value)}
-                    placeholder="Ex: R$ 12.000,00 único"
-                    className="bg-muted/10 border-border/40 text-xs"
-                  />
-                </div>
-
-                <div className="grid gap-1.5">
-                  <Label htmlFor="p-scope" className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Escopo de Entregáveis</Label>
-                  <textarea
-                    id="p-scope"
-                    rows={4}
-                    value={newProposalScope}
-                    onChange={(e) => setNewProposalScope(e.target.value)}
-                    placeholder="Insira os tópicos, cronograma e garantias incluídas nesta proposta..."
-                    className="w-full p-2.5 bg-muted/10 border border-border/40 rounded-lg text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all duration-300"
-                  />
-                </div>
-
-                <div className="pt-2 flex justify-end gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setShowProposalModal(false)}
-                    className="rounded-xl text-xs font-semibold h-10 px-4 active:scale-[0.98] transition-all duration-300"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    className="rounded-xl text-xs font-semibold h-10 px-6 active:scale-[0.98] transition-all duration-300"
-                  >
-                    Criar Proposta
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+      </>
       )}
 
-      {/* 2. Visualizador Branded de Propostas com Identidade do Cliente */}
-      {proposalPreview && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-300">
-          <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-2xl rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-300 relative text-left">
-            <div className="rounded-[calc(2.5rem-0.375rem)] border border-border/20 bg-card p-8 space-y-6 relative overflow-hidden">
-              
-              {/* Dynamic branded background lines / gradients based on client industry */}
-              <div className="absolute top-0 right-0 w-80 h-80 bg-primary/10 rounded-full filter blur-[100px] -z-10 pointer-events-none animate-pulse duration-[8000ms]" />
-              <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-muted/20 rounded-full filter blur-[80px] -z-10 pointer-events-none" />
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        clientId={id}
+        open={showCreateProjectModal}
+        onClose={() => setShowCreateProjectModal(false)}
+        onCreated={(project) => {
+          setClientProjects(prev => [project as any, ...prev])
+          setSelectedProjectId(project.id)
+          setHasProjects(true)
+          setProjectRefreshKey(k => k + 1)
+          setShowCreateProjectModal(false)
+          triggerToast("Projeto criado com sucesso!")
+        }}
+      />
 
-              <button 
-                onClick={() => setProposalPreview(null)}
-                className="absolute right-6 top-6 p-1.5 text-muted-foreground hover:text-foreground cursor-pointer rounded-xl hover:bg-muted active:scale-[0.98] transition-all duration-300"
-              >
-                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-              </button>
-
-              {/* Document Header / Company Brand block */}
-              <div className="flex justify-between items-start border-b border-border/30 pb-6">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <div className="size-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-                      <HugeiconsIcon icon={Building01Icon} className="size-4 text-primary" />
-                    </div>
-                    <span className="text-[10px] font-bold text-primary uppercase tracking-widest font-display">Kyper Consultoria</span>
-                  </div>
-                  <h2 className="text-lg font-bold text-foreground tracking-tight mt-3">{proposalPreview.title}</h2>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Preparado exclusivamente para: <span className="font-semibold text-foreground">{client.name}</span>
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-[9px] font-bold tracking-widest bg-primary/10 text-primary ring-1 ring-primary/20 rounded-full px-2.5 py-1 uppercase">
-                    {proposalPreview.niche}
-                  </span>
-                  <p className="text-[9px] text-muted-foreground mt-2 font-medium">Data: {new Date().toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              {/* Document Body */}
-              <div className="space-y-5">
-                <div>
-                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Escopo de Prestação e Entregáveis</h4>
-                  <div className="mt-2 bg-muted/5 border border-border/20 rounded-xl p-4 min-h-[120px] overflow-y-auto shadow-[inset_0_1px_1px_rgba(255,255,255,0.02)]">
-                    <p className="text-[11px] text-foreground font-medium leading-relaxed whitespace-pre-wrap">
-                      {proposalPreview.scope}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
-                  <div>
-                    <h5 className="text-[9px] font-bold text-primary uppercase tracking-widest leading-none">Investimento Sugerido</h5>
-                    <p className="text-[10px] text-muted-foreground mt-1">Sob vigência contratual e SLA ativo.</p>
-                  </div>
-                  <span className="text-sm font-semibold text-primary font-display">{proposalPreview.value}</span>
-                </div>
-              </div>
-
-              {/* Signatures block */}
-              <div className="flex justify-between items-end border-t border-border/20 pt-6 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-                <div>
-                  <div className="w-28 h-px bg-border/60 mb-2" />
-                  <span>Kyper Consultoria</span>
-                </div>
-                <div className="text-right">
-                  <div className="w-28 h-px bg-border/60 mb-2 ml-auto" />
-                  <span>{client.contactName || client.name}</span>
-                </div>
-              </div>
-
-              {/* Footer Actions */}
-              <div className="pt-4 flex justify-end gap-3">
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    triggerToast("Proposta exportada como PDF (Simulado)!")
-                    setProposalPreview(null)
-                  }}
-                  className="h-10 text-xs px-5 rounded-xl gap-1.5 font-semibold active:scale-[0.98] transition-all duration-300"
-                >
-                  <HugeiconsIcon icon={FolderOpenIcon} className="size-4" /> Exportar PDF
-                </Button>
-                <Button 
-                  onClick={() => {
-                    triggerToast("Assinatura comercial solicitada!")
-                    setProposalPreview(null)
-                  }}
-                  className="h-10 text-xs px-6 rounded-xl font-semibold active:scale-[0.98] transition-all duration-300"
-                >
-                  Solicitar Assinatura
-                </Button>
-              </div>
-
-            </div>
-          </div>
-        </div>
+      {/* 1. Modal Geração de Propostas Comerciais */}
+      {showBudgetWizard && client && (
+        <BudgetProposalWizard
+          clientId={id}
+          clientName={client.name}
+          projectId={selectedProjectId}
+          projects={clientProjects}
+          globalServices={globalServices}
+          open={showBudgetWizard}
+          onClose={() => setShowBudgetWizard(false)}
+          onSaved={(asset) => {
+            setSavedProposals(prev => [asset, ...prev])
+          }}
+          onToast={triggerToast}
+        />
       )}
 
       {/* 3. Modal Vincular Serviço do Catálogo */}
@@ -1987,6 +2275,35 @@ export default function ClientDashboardPage() {
                     </select>
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="s-price" className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Valor do Serviço (R$)</Label>
+                    <Input
+                      id="s-price"
+                      type="text"
+                      required
+                      value={newScopePrice}
+                      onChange={(e) => setNewScopePrice(e.target.value)}
+                      placeholder="Ex: 1200"
+                      className="bg-muted/10 border-border/40 text-xs"
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="s-billing" className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Tipo de Cobrança</Label>
+                    <select
+                      id="s-billing"
+                      value={newScopeBilling}
+                      onChange={(e) => setNewScopeBilling(e.target.value)}
+                      className="bg-card border border-border/40 rounded-lg p-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 h-10"
+                    >
+                      <option value="mensal">Mensal</option>
+                      <option value="anual">Anual</option>
+                      <option value="unico">Pagamento Único</option>
+                    </select>
+                  </div>
+                </div>
+
 
                 <div className="pt-2 flex justify-end gap-2">
                   <Button 
@@ -2259,6 +2576,267 @@ export default function ClientDashboardPage() {
         </div>
       )}
 
+  
+      {/* Quick Meeting Modal */}
+      
+      {/* Quick Briefing Modal */}
+      {showQuickBriefingModal && (
+        <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-md rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 relative">
+            <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-6 relative">
+              <button
+                onClick={() => setShowQuickBriefingModal(false)}
+                className="absolute right-4 top-4 p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg hover:bg-muted active:scale-[0.98] transition-all duration-300"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+              </button>
+
+              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">Enviar Briefing</h3>
+              <p className="text-[10px] text-muted-foreground mb-4">
+                Crie um briefing de projeto e gere o link do portal para o cliente preencher.
+              </p>
+
+              {briefingLink ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2">
+                      <HugeiconsIcon icon={CheckmarkCircle02Icon} className="size-4 text-emerald-500" />
+                      <p className="text-xs font-semibold text-emerald-500">Briefing criado com sucesso!</p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-muted/5 border border-border/20 rounded-lg p-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={briefingLink}
+                        className="flex-1 bg-transparent text-[10px] font-mono text-foreground outline-none"
+                      />
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(briefingLink); triggerToast("Link copiado!"); }}
+                        className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors"
+                      >
+                        <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push(`/inbox?clientId=${id}`)}
+                      className="text-xs h-9 rounded-xl gap-1.5"
+                    >
+                      <HugeiconsIcon icon={Message01Icon} className="size-3.5" />
+                      Enviar no WhatsApp
+                    </Button>
+                    <Button
+                      onClick={() => { setShowQuickBriefingModal(false); setBriefingLink(""); }}
+                      className="text-xs h-9 rounded-xl"
+                    >
+                      Concluir
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleQuickCreateBriefing} className="space-y-4">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="brief-name" className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">
+                      Nome do Projeto
+                    </Label>
+                    <Input
+                      id="brief-name"
+                      type="text"
+                      required
+                      value={briefingName}
+                      onChange={(e) => setBriefingName(e.target.value)}
+                      placeholder="Ex: Site Institucional, Campanha Lancamento..."
+                      className="bg-muted/10 border-border/40 text-xs"
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="brief-goal" className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">
+                      Objetivo Principal (Opcional)
+                    </Label>
+                    <Textarea
+                      id="brief-goal"
+                      value={briefingGoal}
+                      onChange={(e) => setBriefingGoal(e.target.value)}
+                      placeholder="Aumentar leads, melhorar reconhecimento de marca..."
+                      className="bg-muted/10 border-border/40 text-xs min-h-[80px] resize-none"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setShowQuickBriefingModal(false)} className="text-xs h-9 rounded-xl">
+                      Cancelar
+                    </Button>
+                    <Button type="submit" disabled={creatingBriefing} className="text-xs h-9 rounded-xl">
+                      {creatingBriefing ? "Criando..." : "Criar Briefing"}
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contract Wizard */}
+      {showContractWizard && client && (
+        <ContractWizard
+          clientId={id}
+          clientName={client.name}
+          userId={userId}
+          projectId={selectedProjectId}
+          projects={clientProjects}
+          agencySettings={agencySettings}
+          open={showContractWizard}
+          onClose={() => setShowContractWizard(false)}
+          onCreated={(contract) => {
+            setContracts(prev => [...prev, { id: contract.id, status: "pending", title: "", createdAt: new Date().toISOString() }])
+            setShowContractWizard(false)
+          }}
+          onToast={triggerToast}
+        />
+      )}
+
+      {/* Satisfaction Scores Modal */}
+      {showSatisfactionModal && (
+        <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-sm rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 relative">
+            <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-6 relative">
+              <button
+                onClick={() => setShowSatisfactionModal(false)}
+                className="absolute right-4 top-4 p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg hover:bg-muted active:scale-[0.98] transition-all duration-300"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+              </button>
+
+              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">Satisfacao do Cliente (NPS)</h3>
+              <p className="text-[10px] text-muted-foreground mb-4">
+                Avaliacoes recentes registradas pelo cliente.
+              </p>
+
+              {satisfaction.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-border/30 rounded-xl bg-muted/5">
+                  <p className="text-xs text-muted-foreground">Nenhum score NPS registrado.</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">Envie uma pesquisa de satisfacao pelo chat.</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push(`/inbox?clientId=${id}`)}
+                    className="mt-3 text-xs h-8 rounded-xl"
+                  >
+                    Ir para o Chat
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between bg-muted/5 border border-border/20 rounded-xl p-3">
+                    <span className="text-[10px] font-semibold text-foreground">Media NPS</span>
+                    <span className="text-lg font-semibold font-display text-primary">
+                      {Math.round(satisfaction.reduce((s, v) => s + v.score, 0) / satisfaction.length)}/10
+                    </span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto no-scrollbar space-y-2">
+                    {satisfaction.map((s) => (
+                      <div key={s.id} className="p-2.5 bg-muted/5 border border-border/30 rounded-xl flex items-center justify-between">
+                        <div className="min-w-0 flex-1 mr-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold ${s.score >= 8 ? 'text-emerald-500' : s.score >= 5 ? 'text-amber-500' : 'text-destructive'}`}>
+                              {s.score}/10
+                            </span>
+                            {s.note && (
+                              <span className="text-[9px] text-muted-foreground truncate">{s.note}</span>
+                            )}
+                          </div>
+                          <p className="text-[9px] text-muted-foreground mt-0.5">
+                            {new Date(s.createdAt).toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showQuickMeetingModal && (
+        <div className="fixed inset-0 bg-background/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="double-bezel-card bg-muted/10 ring-1 ring-border/50 p-1.5 w-full max-w-md rounded-[2rem] shadow-2xl animate-in zoom-in-95 duration-300 relative">
+            <div className="bg-card border border-border/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] rounded-[calc(2rem-0.375rem)] p-6 relative">
+              <button
+                onClick={() => setShowQuickMeetingModal(false)}
+                className="absolute right-4 top-4 p-1 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg hover:bg-muted active:scale-[0.98] transition-all duration-300"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+              </button>
+              <h3 className="text-sm font-semibold text-foreground mb-1 font-display">Agendar Reunião</h3>
+              <p className="text-[10px] text-muted-foreground mb-4">Agende uma reunião com este cliente.</p>
+              <div className="space-y-3">
+                <div className="grid gap-1.5">
+                  <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Título</Label>
+                  <Input
+                    value={quickMeetingTitle}
+                    onChange={(e) => setQuickMeetingTitle(e.target.value)}
+                    placeholder="Ex: Reunião de Alinhamento Semanal"
+                    className="bg-muted/10 border-border/40 text-xs"
+                    autoFocus
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5">
+                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Data</Label>
+                    <Input
+                      type="date"
+                      value={quickMeetingDate}
+                      onChange={(e) => setQuickMeetingDate(e.target.value)}
+                      className="bg-muted/10 border-border/40 text-xs"
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Horário</Label>
+                    <Input
+                      type="time"
+                      value={quickMeetingTime}
+                      onChange={(e) => setQuickMeetingTime(e.target.value)}
+                      className="bg-muted/10 border-border/40 text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Plataforma</Label>
+                  <select
+                    value={quickMeetingPlatform}
+                    onChange={(e) => setQuickMeetingPlatform(e.target.value)}
+                    className="bg-card border border-border/40 rounded-lg p-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 h-10"
+                  >
+                    <option value="Google Meet">Google Meet</option>
+                    <option value="Zoom">Zoom</option>
+                    <option value="Teams">Microsoft Teams</option>
+                    <option value="Presencial">Presencial</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                  </select>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest ml-0.5">Descrição (opcional)</Label>
+                  <Textarea
+                    value={quickMeetingDesc}
+                    onChange={(e) => setQuickMeetingDesc(e.target.value)}
+                    placeholder="Ex: Revisar resultados do mês e planejar próximas ações..."
+                    className="bg-muted/10 border-border/40 text-xs min-h-[60px] resize-none"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setShowQuickMeetingModal(false)} className="text-xs h-9 rounded-xl" disabled={creatingMeeting}>Cancelar</Button>
+                <Button onClick={handleQuickCreateMeeting} disabled={!quickMeetingTitle.trim() || !quickMeetingDate.trim() || creatingMeeting} className="text-xs h-9 rounded-xl">
+                  {creatingMeeting ? "Agendando..." : "Agendar Reunião"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Floating toast notification (Double-Bezel style) */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
